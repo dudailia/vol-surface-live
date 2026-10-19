@@ -75,6 +75,7 @@ jobs:
         if: always()
         with:
           name: screenshots-and-lighthouse
+          include-hidden-files: true
           path: |
             web/test-results
             web/.lighthouseci

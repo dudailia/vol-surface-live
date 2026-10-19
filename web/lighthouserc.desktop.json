@@ -7,7 +7,7 @@
         "http://localhost:3300/",
         "http://localhost:3300/reports"
       ],
-      "numberOfRuns": 1,
+      "numberOfRuns": 3,
       "settings": {
         "chromeFlags": "--headless=new",
         "preset": "desktop"
@@ -39,7 +39,8 @@
             "minScore": 0.9
           }
         ]
-      }
+      },
+      "aggregationMethod": "median"
     },
     "upload": {
       "target": "filesystem",

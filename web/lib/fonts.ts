@@ -18,6 +18,9 @@ export const sourceCodePro = localFont({
   weight: '200 900',
   style: 'normal',
   display: 'swap',
+  // Not preloaded: it swaps in, and preloading it competed with the hero image for
+  // bandwidth on slow connections.
+  preload: false,
   variable: '--font-mono-face',
   adjustFontFallback: 'Arial',
   fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
