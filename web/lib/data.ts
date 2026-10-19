@@ -73,7 +73,15 @@ export async function getLatest(): Promise<Latest> {
     const b = parse(bundleSchema, raw?.[c], `${c} bundle`)
     if (b) out[c] = b
   }
-  // Worker down: fall back to the last end-of-day bundle in the archive.
+  // Worker down: fall back to the last latest.json saved to the archive, then to the last
+  // end-of-day bundle. Either way the page shows the snapshot's own timestamp.
+  if (!out.BTC || !out.ETH) {
+    const saved = (await getJSON(BLOB_BASE_URL, 'latest.json')) as Record<string, unknown> | null
+    for (const c of CURRENCIES) {
+      const b = out[c] ? null : parse(bundleSchema, saved?.[c], `${c} saved bundle`)
+      if (b) out[c] = b
+    }
+  }
   if (!out.BTC || !out.ETH) {
     const idx = await getHistoryIndex()
     for (const c of CURRENCIES) {

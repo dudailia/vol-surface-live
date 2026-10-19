@@ -19,6 +19,9 @@ def main(argv: list[str] | None = None) -> None:
     f = sub.add_parser("record-fixture", help="save live payloads for offline tests")
     f.add_argument("path", type=Path)
     sub.add_parser("serve", help="run the scheduler and HTTP server")
+    sub.add_parser("publish-latest",
+                   help="upload the latest bundles to Blob as latest.json (one upload; the "
+                        "page falls back to it when the worker is unreachable)")
     r = sub.add_parser("report", help="write the daily report for a UTC date")
     r.add_argument("--date", required=True)
     r.add_argument("--publish", action="store_true")
@@ -39,6 +42,12 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "serve":
         from .service import serve
         serve(settings)
+    elif args.cmd == "publish-latest":
+        from .blob import Publisher
+        from .store import Store
+        store = Store(settings.data_dir)
+        body = {c: store.latest_bundle(c) for c in CURRENCIES}
+        print(Publisher(settings.data_dir).put_json("latest.json", body, max_age=300))
     elif args.cmd == "report":
         from .report import run_report
         rep = run_report(settings, args.date, publish_it=args.publish)
