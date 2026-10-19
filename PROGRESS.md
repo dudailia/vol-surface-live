@@ -110,6 +110,7 @@ ruff and mypy --strict are clean.
 The 13 e2e tests cover: zero console errors, axe with no violations, keyboard use, reduced motion, the WebGL fallback, phone tap-to-load, no horizontal scroll at 375/768/1440/2560, reports and 404, and the share image and icon.
 
 **Issues found by the gates and fixed**
+- On CI's GPU-less runner, software WebGL caused 6.3 s of blocking time on desktop. The canvas now detects software renderers, and a frame-time watchdog catches anything else slow; in both cases it draws only on change (drag, morph, resize) with no auto-rotation. CI desktop is now 94 to 100.
 - A hydration mismatch under reduced motion.
 - A duplicated hero intro (two h1 elements with the same id).
 - Screen-reader tables widening the page by 44px.
@@ -128,7 +129,7 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 ## Phase 5: portfolio (done 2026-10-19 except the public repo)
 
 - README (what, why, how it works, how to run, method, tests, limitations, independence), MIT licence.
-- CI in `.github/workflows/ci.yml`:
+- CI in `.github/workflows/ci.yml` (green on GitHub since run 4; Lighthouse uses the median of 3 runs):
   - worker job: ruff, mypy --strict, pytest offline, schema drift;
   - web job: zod schema drift, typecheck, lint, Vitest, build, copy check, Playwright, Lighthouse on recorded fixtures.
 - The repository is private (`dudailia/vol-surface-live`) until the user reviews it.
