@@ -12,7 +12,7 @@ import { expiryLabel, fixed, signed, utcDate, utcStamp } from '@/lib/format'
 const POINT = { '10P': '10-delta put', '25P': '25-delta put', ATM: 'at-the-money', '25C': '25-delta call', '10C': '10-delta call' } as Record<string, string>
 
 export function WhatMoved({ report, nextReport }: { report: Report | null; nextReport: string }) {
-  const { currency } = useLive()
+  const { currency, stale } = useLive()
   const r = report?.currencies[currency]
 
   return (
@@ -24,8 +24,9 @@ export function WhatMoved({ report, nextReport }: { report: Report | null; nextR
         <div className="measure">
           {!report || !r ? (
             <p className="text-graphite">
-              The first daily report is written at 00:00 UTC on {nextReport}. It will compare that day&rsquo;s surface with
-              the one 24 hours earlier, and this panel will summarise it.
+              {stale
+                ? 'Daily reports are written at 00:00 UTC by the worker that collects the quotes. It is not running at the moment, so no report is due; this panel will summarise the first one once it is.'
+                : `The first daily report is written at 00:00 UTC on ${nextReport}. It will compare that day’s surface with the one 24 hours earlier, and this panel will summarise it.`}
             </p>
           ) : (
             <Sentences r={r} report={report} />
