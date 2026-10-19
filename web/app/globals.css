@@ -1,0 +1,263 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Tokens. The page is dark only. The six base roles are iliaduda.com's dark set,
+   so this page reads as part of the same site.
+
+   Colour has one job: --indigo marks a measurement (a quote, a fitted value).
+   Headings, links and buttons stay in ink. --flag marks a static-arbitrage
+   violation and is always paired with a ring and a label, never colour alone.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --color-paper: #111316;
+  --color-raised: #171a1f;
+  --color-ink: #e9e6df;
+  --color-graphite: #9ea3ab;
+  --color-rule: #2b2e34;
+  --color-indigo: #a3adf5;
+  --color-indigo-wash: #262b4c;
+  --color-violet: #d9c9ff;
+  --color-flag: #e8b45a;
+
+  /* Surface ramp, low vol to high, rising in lightness (sequential, one hue family). */
+  --color-ramp-0: #262b4c;
+  --color-ramp-1: #4b55a8;
+  --color-ramp-2: #a3adf5;
+  --color-ramp-3: #d9c9ff;
+
+  --font-serif: var(--font-serif-face), Georgia, 'Times New Roman', serif;
+  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Type scale, the site's steps. */
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.45;
+  --text-note: 0.9375rem;
+  --text-note--line-height: 1.5;
+  --text-small: 1.0625rem;
+  --text-small--line-height: 1.6;
+  --text-body: 1.1875rem;
+  --text-body--line-height: 1.62;
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 1.3;
+  --text-h2: 1.9375rem;
+  --text-h2--line-height: 1.22;
+  --text-h1: 2.75rem;
+  --text-h1--line-height: 1.12;
+  --text-display: clamp(2.25rem, 1.6rem + 2.2vw, 4.5rem);
+  --text-display--line-height: 1.06;
+
+  /* Motion. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --duration-micro: 120ms;
+  --duration-ui: 240ms;
+  --duration-draw: 700ms;
+  --duration-count: 900ms;
+}
+
+:root {
+  --measure: 44.375rem;
+  --rail: 15rem;
+  --gutter: 2.5rem;
+  --page-max: 80rem;
+  --side: 1rem;
+  color-scheme: dark;
+}
+@media (min-width: 48rem) {
+  :root {
+    --side: 2.5rem;
+  }
+}
+@media (min-width: 90rem) {
+  :root {
+    --side: 4rem;
+  }
+}
+@media (min-width: 140rem) {
+  :root {
+    --page-max: 100rem;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scrollbar-color: var(--color-rule) var(--color-paper);
+    overflow-anchor: none;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-serif);
+    font-size: var(--text-small);
+    line-height: 1.6;
+    font-variant-numeric: oldstyle-nums proportional-nums;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  @media (min-width: 40rem) {
+    body {
+      font-size: var(--text-body);
+      line-height: 1.62;
+    }
+  }
+
+  ::selection {
+    background-color: var(--color-indigo-wash);
+    color: var(--color-ink);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  p,
+  li,
+  figcaption,
+  dd {
+    text-wrap: pretty;
+  }
+
+  a {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-color: color-mix(in oklab, var(--color-graphite) 55%, var(--color-paper));
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+    transition:
+      color var(--duration-micro) ease,
+      text-decoration-color var(--duration-micro) ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    a:hover {
+      text-decoration-color: var(--color-ink);
+    }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-indigo);
+    outline-offset: 3px;
+    border-radius: 1px;
+  }
+
+  button,
+  [role='radio'] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* Numbers: one mono face, tabular, lining. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  letter-spacing: -0.01em;
+}
+
+/* The page grid: a margin rail for headings and readouts, then the text measure. Below
+   64rem the rail folds into the column. */
+.page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-inline: var(--side);
+}
+.grid-rail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 1rem;
+}
+@media (min-width: 64rem) {
+  .grid-rail {
+    grid-template-columns: var(--rail) minmax(0, var(--measure)) minmax(0, 1fr);
+    column-gap: var(--gutter);
+  }
+  .grid-rail > .rail {
+    grid-column: 1;
+  }
+  .grid-rail > .measure {
+    grid-column: 2;
+  }
+  .grid-rail > .wide {
+    grid-column: 2 / -1;
+  }
+}
+
+/* The site's slider. */
+input[type='range'] {
+  --fill: 0%;
+  --track: color-mix(in oklab, var(--color-graphite) 55%, var(--color-paper));
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 24px;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--color-indigo) var(--fill), var(--track) var(--fill));
+}
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+input[type='range']::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-indigo);
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  margin-top: -7px;
+  border: 2px solid var(--color-paper);
+  border-radius: 50%;
+  background: var(--color-indigo);
+  transition: transform var(--duration-micro) var(--ease-out);
+}
+input[type='range']::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-paper);
+  border-radius: 50%;
+  background: var(--color-indigo);
+}
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+/* Pressable controls answer a press at once. */
+.press {
+  transition:
+    transform var(--duration-micro) var(--ease-out),
+    background-color var(--duration-micro) ease,
+    color var(--duration-micro) ease;
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
