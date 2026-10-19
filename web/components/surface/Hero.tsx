@@ -90,6 +90,15 @@ export function Hero() {
       if (window.cancelIdleCallback) window.cancelIdleCallback(idle)
     }
   }, [capture])
+  // Capture mode (the 15-second video): expose the canvas clock so frames step exactly.
+  useEffect(() => {
+    if (!capture) return
+    const w = window as unknown as { __volsurf?: { step: (dt: number) => void } }
+    w.__volsurf = { step: (dt: number) => canvas.current?.step(dt) }
+    return () => {
+      delete w.__volsurf
+    }
+  }, [capture])
   const onReady = useCallback(() => setReady(true), [])
   const onFail = useCallback((r: string) => setFailed(r), [])
   const onHover = useCallback((q: CanvasQuote | null, x: number, y: number) => setTip(q ? { q, x, y } : null), [])
@@ -124,10 +133,10 @@ export function Hero() {
           <CurrencyToggle value={currency} onChange={setCurrency} available={Object.keys(bundles) as Currency[]} />
         </div>
       </div>
-      <h1 id="hero-title" className="mt-6 max-w-[16ch] text-display lg:mt-10">
+      <h1 id="hero-title" className={`mt-6 text-display lg:mt-10 ${capture ? 'max-w-[24ch]' : 'max-w-[16ch]'}`}>
         {currency === 'BTC' ? 'Bitcoin' : 'Ether'} implied volatility, live from Deribit
       </h1>
-      <p className="mt-5 max-w-[34rem] text-small sm:text-body lg:max-w-[29rem] 2xl:max-w-[34rem]">
+      <p className={`mt-5 text-small sm:text-body ${capture ? 'max-w-[44rem]' : 'max-w-[34rem] lg:max-w-[29rem] 2xl:max-w-[34rem]'}`}>
         {t30 && (
           <>
             Thirty-day at-the-money vol is <Num value={t30.atm} format={(x) => `${fixed(x)}%`} />.{' '}
@@ -174,9 +183,16 @@ export function Hero() {
       </div>
       <figure
         aria-labelledby="hero-caption"
-        className="relative mt-4 lg:mt-0 lg:h-[100svh] lg:max-h-[72rem] lg:min-h-[44rem]"
+        className={capture ? 'relative h-[100svh]' : 'relative mt-4 lg:mt-0 lg:h-[100svh] lg:max-h-[72rem] lg:min-h-[44rem]'}
       >
-        <div className="relative aspect-[1/1] w-full sm:aspect-[16/11] lg:absolute lg:top-[19%] lg:bottom-[13%] lg:left-[38%] lg:right-[1%] lg:aspect-auto lg:w-auto 2xl:left-[40%]">
+        {capture && <style>{'html{overflow:hidden}'}</style>}
+        <div
+          className={
+            capture
+              ? 'absolute inset-x-0 bottom-[9%] top-[30%]'
+              : 'relative aspect-[1/1] w-full sm:aspect-[16/11] lg:absolute lg:top-[19%] lg:bottom-[13%] lg:left-[38%] lg:right-[1%] lg:aspect-auto lg:w-auto 2xl:left-[40%]'
+          }
+        >
           {/* Poster: the first paint, and the whole figure when WebGL is unavailable. */}
           <picture>
             <source media="(min-width: 640px)" srcSet={`/poster/${currency}/wide.svg?t=${encodeURIComponent(bundle.ts)}`} />
@@ -248,13 +264,13 @@ export function Hero() {
             </div>
           )}
         </div>
-        <div className="page relative z-10 mt-4 lg:absolute lg:inset-x-0 lg:bottom-6 lg:mt-0">
+        <div className={capture ? 'page absolute inset-x-0 bottom-6 z-10' : 'page relative z-10 mt-4 lg:absolute lg:inset-x-0 lg:bottom-6 lg:mt-0'}>
           <figcaption id="hero-caption" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-note text-graphite">
             <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <Legend />
               {failed && <span>{failed}; showing a still image.</span>}
             </span>
-            {!failed && (
+            {!failed && !capture && (
               <span className="flex gap-2">
                   <button
                     type="button"
@@ -274,7 +290,7 @@ export function Hero() {
               </span>
             )}
           </figcaption>
-          <p className="mt-2 max-w-[var(--measure)] text-note text-graphite">
+          <p className={`mt-2 max-w-[var(--measure)] text-note text-graphite ${capture ? 'hidden' : ''}`}>
             Drag to turn it. {bundle.cleaning.n_kept} of {bundle.cleaning.n_raw} quotes passed the cleaning rules and were
             fitted; the few more than {SPREAD_SD} standard deviations out are left off this view.
           </p>

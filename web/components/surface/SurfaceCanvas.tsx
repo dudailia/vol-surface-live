@@ -138,12 +138,13 @@ const dotFragment = /* glsl */ `
 
 const ringFragment = /* glsl */ `
   uniform vec3 color;
+  uniform float opacity;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     float r = length(c) * 2.0;
     float ring = smoothstep(0.62, 0.72, r) * (1.0 - smoothstep(0.86, 0.96, r));
     if (ring < 0.02) discard;
-    gl_FragColor = vec4(color, ring);
+    gl_FragColor = vec4(color, ring * opacity);
     #include <colorspace_fragment>
   }
 `
@@ -277,7 +278,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
       transparent: true,
       depthWrite: false,
       depthTest: false,
-      uniforms: { size: { value: 13 }, pixelRatio: pr, color: { value: new THREE.Color(0xe8b45a) } },
+      uniforms: { size: { value: 13 }, pixelRatio: pr, color: { value: new THREE.Color(0xe8b45a) }, opacity: { value: 1 } },
     })
     const quoteGeo = new THREE.BufferGeometry()
     const flagGeo = new THREE.BufferGeometry()
@@ -332,6 +333,8 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
     let from: Surface = shown
     let target: Surface = shown
     let morphT = 1
+    let dotFade = 1
+    let pendingMarks = false
     const gridT = (s: Surface) => {
       const a = Math.sqrt(s.T[0])
       const b = Math.sqrt(s.T[s.T.length - 1])
@@ -509,9 +512,21 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
         from = shown
         target = p.surface
         morphT = p.reducedMotion ? 1 : 0
+        // Lines and quotes belong to the new snapshot: swap them in once the surface arrives.
+        pendingMarks = true
+        if (!p.reducedMotion) dotFade = 0
+      }
+      if (pendingMarks && morphT >= 1) {
         setLines(target, p.frame, p.expiries)
         setQuotes(p.quotes, p.frame)
+        pendingMarks = false
       }
+      if (morphT >= 1 && dotFade < 1) dotFade = Math.min(1, dotFade + dt / 0.4)
+      const fade = morphT < 1 ? 0 : dotFade
+      dotMat.uniforms.opacity.value = fade
+      ghostMat.uniforms.opacity.value = 0.3 * fade
+      ringMat.uniforms.opacity.value = fade
+      lineMat.opacity = 0.32 * (morphT < 1 ? 0 : dotFade)
       if (morphT < 1) {
         morphT = Math.min(1, morphT + dt / MORPH_SECONDS)
         // Ease in-out: the surface leaves and settles gently.
