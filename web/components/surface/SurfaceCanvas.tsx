@@ -188,6 +188,20 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
     renderer.setPixelRatio(pixelRatio)
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.setClearColor(0x000000, 0)
+    // Without GPU acceleration (SwiftShader, llvmpipe) every frame costs tens of milliseconds
+    // of main-thread time. There the surface draws only when something changes: a drag, a
+    // morph, a resize. The frame-time watchdog below switches to the same mode if frames
+    // stay slow for any other reason.
+    let onDemand = false
+    try {
+      const gl = renderer.getContext()
+      const info = gl.getExtension('WEBGL_debug_renderer_info')
+      const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER))
+      onDemand = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)
+    } catch {
+      // Renderer string unavailable: rely on the watchdog.
+    }
+    let dirty = true
     const canvas = renderer.domElement
     canvas.style.display = 'block'
     canvas.style.width = '100%'
@@ -379,6 +393,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
     }
 
     const onDown = (ev: PointerEvent) => {
+      dirty = true
       dragging = true
       touched = true
       lastX = ev.clientX
@@ -454,7 +469,10 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
       })
     }
     collectAnchors()
-    const labelObserver = new MutationObserver(collectAnchors)
+    const labelObserver = new MutationObserver(() => {
+      collectAnchors()
+      dirty = true
+    })
     if (live.current.labels.current) {
       labelObserver.observe(live.current.labels.current, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-anchor'] })
     }
@@ -489,6 +507,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
         el2 = home.elevation
       }
       camera.updateProjectionMatrix()
+      dirty = true
     }
     const ro = new ResizeObserver(resize)
     ro.observe(el)
@@ -535,12 +554,15 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
         setSurface(shown, p.frame)
       }
 
+      const moving = dragging || Math.abs(azVel) > 1e-4 || Math.abs(elVel) > 1e-4
+      const animating = morphT < 1 || dotFade < 1 || pendingMarks
+      if (onDemand && ready && !dirty && !moving && !animating) return
       if (!dragging) {
         az += azVel
         el2 = Math.min(Math.max(el2 + elVel, 0.08), 1.35)
         azVel *= 0.92
         elVel *= 0.92
-        if (auto && idleFor > 3) {
+        if (auto && !onDemand && idleFor > 3) {
           swayPhase += dt * 0.16
           const want = swayCentre + 0.32 * Math.sin(swayPhase)
           az += (want - az) * Math.min(1, dt * 0.8)
@@ -549,13 +571,14 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
           swayPhase = 0
         }
       }
-      if (!p.reducedMotion && !p.capture) {
+      if (!p.reducedMotion && !p.capture && !onDemand) {
         tiltX += (pointerNX - tiltX) * Math.min(1, dt * 3)
         tiltY += (pointerNY - tiltY) * Math.min(1, dt * 3)
       }
       placeCamera()
       renderer.render(scene, camera)
       placeLabels(W, H)
+      dirty = false
       if (!ready) {
         ready = true
         p.onReady()
@@ -578,6 +601,8 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
           pr.value = 1
           renderer.setPixelRatio(1)
           resize()
+        } else if (median > 0.04) {
+          onDemand = true
         }
         frameTimes.length = 0
       }
@@ -592,6 +617,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
 
     api.current = {
       resetView() {
+        dirty = true
         swayCentre = home.azimuth
         swayPhase = 0
         az = home.azimuth
