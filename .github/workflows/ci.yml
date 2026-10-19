@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.13'
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Types
+        run: uv run mypy src
+      - name: Tests (recorded fixtures, no network)
+        run: uv run pytest -q
+      - name: Schema has not drifted from the pydantic models
+        run: |
+          uv run python -m volsurf.schema ../schema
+          git diff --exit-code ../schema
+
+  web:
+    runs-on: ubuntu-latest
+    needs: worker
+    defaults:
+      run:
+        working-directory: web
+    env:
+      # CI renders the page from a recorded snapshot instead of the live worker.
+      WORKER_URL: ${{ github.workspace }}/web/e2e/fixtures/worker
+      BLOB_BASE_URL: ${{ github.workspace }}/web/e2e/fixtures/blob
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Generated zod schemas match /schema
+        run: |
+          pnpm schema
+          git diff --exit-code lib/generated
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - name: Copy rules (no em dashes, no hype words)
+        run: |
+          pnpm start --port 3400 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3400 > /dev/null && break; sleep 1; done
+          node ../scripts/check-copy.mjs --url http://localhost:3400
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: End-to-end (console errors, axe, keyboard, reduced motion, fallbacks, 4 widths)
+        run: pnpm e2e
+      - name: Lighthouse, mobile and desktop, 90+ in every category
+        run: pnpm lhci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots-and-lighthouse
+          path: |
+            web/test-results
+            web/.lighthouseci
