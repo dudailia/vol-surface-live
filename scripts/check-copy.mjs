@@ -5,7 +5,7 @@
 //
 //   node scripts/check-copy.mjs [--url http://localhost:3000]
 
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const ROOT = new URL('..', import.meta.url).pathname
@@ -23,6 +23,7 @@ function check(where, text) {
 }
 
 function walk(dir, exts, out = []) {
+  if (!existsSync(dir)) return out
   for (const name of readdirSync(dir)) {
     if (['node_modules', '.next', '.venv', 'test-results', '.lighthouseci', 'data'].includes(name)) continue
     const p = join(dir, name)

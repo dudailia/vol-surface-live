@@ -69,4 +69,69 @@
 
 ruff and mypy --strict are clean.
 
-## Phase 4: front end (in progress)
+## Phase 4: front end (done 2026-10-19, live at https://vol.iliaduda.com)
+
+**Design system**
+- iliaduda.com's dark tokens: paper #111316, ink #e9e6df, graphite #9ea3ab, rule #2b2e34, indigo #a3adf5 for measurements only, amber #e8b45a for arbitrage flags (always with a ring and a label).
+- Source Serif 4 and Source Code Pro, self-hosted, with tabular figures for every number.
+- The site's type scale, 240px rail and 710px measure.
+- Motion tokens: 120/240/700/900 ms, plus the site's ease-out and ease-in-out curves.
+- The colour palette was checked with the dataviz validator: colour-blind ΔE 22 between quotes and flags.
+
+**Hero**
+- Plain three.js, with no react-three-fiber.
+- Surface on standardised moneyness k/√θ, a square-root time axis and iso-vol contours.
+- Quotes are ringed dots, with a faint pass through the surface so quotes below the fit stay visible. Flags are amber rings.
+- A slow sway around the default view, drag to turn, and a cursor tilt.
+- New snapshots and currency switches morph in parameter space. Every frame satisfies the no-arbitrage conditions: θ is kept monotone and η is clamped back onto η(1+|ρ|) ≤ 2. Quotes and expiry lines fade in once the surface arrives.
+- The server-rendered SVG poster is the first paint. It is also the whole figure on phones and touch screens until "Turn it in 3D" is pressed, and when WebGL fails or the context is lost.
+
+**Sections**
+- "What moved": sentences built only from the daily report JSON. A missing number hides its sentence.
+- A seven-step scroll explainer with a sticky live figure: quotes, total variance, SSVI fit, g(k), skew, term structure, Dupire local vol. Each chart has a screen-reader table.
+- A history slider, morphing to daily and hourly snapshots.
+- Methods, with cleaning rules and counts read from the bundle.
+- A /reports page, 404 page, sitemap and robots.
+
+**Share image and icons:** drawn from the real surface with satori.
+
+**Quality gates**
+
+| Gate | Result |
+|---|---|
+| Lighthouse, live, mobile | 94 / 100 / 100 / 100 (LCP 3.0 s, TBT 30 ms, CLS 0) |
+| Lighthouse, live, desktop | 99 / 100 / 100 / 100 |
+| Lighthouse, /reports, mobile | 99 / 100 / 100 / 100 |
+| Median frame time, real GPU (MacBook, headed Chromium) | 8.3 ms |
+| Playwright e2e | 13 passing |
+| `tsc` strict, ESLint, Vitest | clean |
+| Copy check | passing |
+
+The 13 e2e tests cover: zero console errors, axe with no violations, keyboard use, reduced motion, the WebGL fallback, phone tap-to-load, no horizontal scroll at 375/768/1440/2560, reports and 404, and the share image and icon.
+
+**Issues found by the gates and fixed**
+- A hydration mismatch under reduced motion.
+- A duplicated hero intro (two h1 elements with the same id).
+- Screen-reader tables widening the page by 44px.
+- three.js blocking the main thread on mobile (Lighthouse 55 before deferring WebGL).
+
+**Deploy**
+- Vercel project vol-surface-live (Root Directory web, framework pinned in vercel.json).
+- Blob store vol-surface-archive (public, lhr1).
+- Domain vol.iliaduda.com, served by Vercel DNS, so no record was needed.
+
+**Open**
+- The Fly worker is not deployed yet: the user skipped Fly login on 2026-10-19.
+- Until it is, the page shows one real snapshot uploaded to Blob as latest.json (22:29 UTC, 19 October 2026), with its timestamp and a stale-data notice. One Blob upload was used.
+- Deploying the worker: `fly auth login`, then `cd worker && fly launch --no-deploy --copy-config`, `fly volumes create volsurf_data --region lhr --size 5`, `fly secrets set BLOB_READ_WRITE_TOKEN=...`, `fly deploy`. Then set WORKER_URL on Vercel and redeploy.
+
+## Phase 5: portfolio (done 2026-10-19 except the public repo)
+
+- README (what, why, how it works, how to run, method, tests, limitations, independence), MIT licence.
+- CI in `.github/workflows/ci.yml`:
+  - worker job: ruff, mypy --strict, pytest offline, schema drift;
+  - web job: zod schema drift, typecheck, lint, Vitest, build, copy check, Playwright, Lighthouse on recorded fixtures.
+- The repository is private (`dudailia/vol-surface-live`) until the user reviews it.
+- `paper/`: a draft page in the site's form (page.tsx, OG image, figure from the archived snapshot, registry and facts entries with sources), with a merge guide. iliaduda-site was not touched.
+- `media/surface.mp4`: 1080x1080, 15.0 s, 30 fps, H.264. 450 frames were stepped deterministically from the live page in capture mode, with BTC morphing to ETH at 7 s.
+- `docs/linkedin-post.md`: 131 words, one live number (BTC 30-day ATM 35.7% at 22:29 UTC, 19 October 2026), link in the first comment.
