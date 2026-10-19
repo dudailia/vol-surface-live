@@ -1,0 +1,521 @@
+{
+  "$defs": {
+    "ArbBlock": {
+      "properties": {
+        "counts": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Counts",
+          "type": "object"
+        },
+        "violations": {
+          "description": "largest first, at most 50",
+          "items": {
+            "$ref": "#/$defs/ViolationOut"
+          },
+          "title": "Violations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "counts",
+        "violations"
+      ],
+      "title": "ArbBlock",
+      "type": "object"
+    },
+    "Cleaning": {
+      "properties": {
+        "dropped": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Dropped",
+          "type": "object"
+        },
+        "n_kept": {
+          "title": "N Kept",
+          "type": "integer"
+        },
+        "n_raw": {
+          "title": "N Raw",
+          "type": "integer"
+        },
+        "rules": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Rules",
+          "type": "object"
+        },
+        "skipped_expiries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skipped Expiries",
+          "type": "array"
+        }
+      },
+      "required": [
+        "n_raw",
+        "n_kept",
+        "dropped",
+        "rules",
+        "skipped_expiries"
+      ],
+      "title": "Cleaning",
+      "type": "object"
+    },
+    "Expiry": {
+      "properties": {
+        "F": {
+          "description": "Deribit forward (underlying_price), USD",
+          "title": "F",
+          "type": "number"
+        },
+        "T": {
+          "description": "years to expiry, ACT/365",
+          "title": "T",
+          "type": "number"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "expiry": {
+          "format": "date-time",
+          "title": "Expiry",
+          "type": "string"
+        },
+        "inside_spread": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "share of quotes with the fit inside bid/ask IV",
+          "title": "Inside Spread"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "quotes": {
+          "$ref": "#/$defs/QuoteColumns"
+        },
+        "rmse_vol_pts": {
+          "title": "Rmse Vol Pts",
+          "type": "number"
+        },
+        "stats": {
+          "$ref": "#/$defs/SmileStats"
+        },
+        "theta": {
+          "description": "fitted ATM total variance",
+          "title": "Theta",
+          "type": "number"
+        }
+      },
+      "required": [
+        "code",
+        "expiry",
+        "T",
+        "F",
+        "theta",
+        "stats",
+        "rmse_vol_pts",
+        "inside_spread",
+        "n",
+        "quotes"
+      ],
+      "title": "Expiry",
+      "type": "object"
+    },
+    "IVCheck": {
+      "description": "Our IVs against Deribit's own bid_iv/ask_iv on a random sample of clean quotes.\n\nDeribit rounds IVs to 0.01, so gaps up to 0.005 are rounding. Now and then a ticker's\nIV disagrees with its own price by more (it appears to be computed at a slightly\ndifferent moment); those are counted, not hidden.",
+      "properties": {
+        "max_gap_pts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Gap Pts"
+        },
+        "median_gap_pts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Median Gap Pts"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "n_over_0_1_pts": {
+          "title": "N Over 0 1 Pts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "n",
+        "median_gap_pts",
+        "max_gap_pts",
+        "n_over_0_1_pts"
+      ],
+      "title": "IVCheck",
+      "type": "object"
+    },
+    "LocalVol": {
+      "properties": {
+        "T": {
+          "items": {
+            "type": "number"
+          },
+          "title": "T",
+          "type": "array"
+        },
+        "k": {
+          "items": {
+            "type": "number"
+          },
+          "title": "K",
+          "type": "array"
+        },
+        "vol": {
+          "description": "vol points; null outside 3 ATM standard deviations",
+          "items": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "title": "Vol",
+          "type": "array"
+        }
+      },
+      "required": [
+        "k",
+        "T",
+        "vol"
+      ],
+      "title": "LocalVol",
+      "type": "object"
+    },
+    "QuoteColumns": {
+      "description": "Cleaned quotes used in the fit, column-wise to keep the JSON small.",
+      "properties": {
+        "ask_iv": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Ask Iv",
+          "type": "array"
+        },
+        "bid_iv": {
+          "description": "implied vol, fraction (0.5 = 50%)",
+          "items": {
+            "type": "number"
+          },
+          "title": "Bid Iv",
+          "type": "array"
+        },
+        "flags": {
+          "description": "bitmask: 1 vertical, 2 butterfly, 4 calendar, 8 tradeable at quoted prices",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "instrument": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Instrument",
+          "type": "array"
+        },
+        "is_call": {
+          "items": {
+            "type": "boolean"
+          },
+          "title": "Is Call",
+          "type": "array"
+        },
+        "k": {
+          "description": "log-moneyness ln(K/F)",
+          "items": {
+            "type": "number"
+          },
+          "title": "K",
+          "type": "array"
+        },
+        "mid_iv": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Mid Iv",
+          "type": "array"
+        },
+        "oi": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Oi",
+          "type": "array"
+        },
+        "strike": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Strike",
+          "type": "array"
+        }
+      },
+      "required": [
+        "instrument",
+        "strike",
+        "is_call",
+        "k",
+        "bid_iv",
+        "ask_iv",
+        "mid_iv",
+        "oi",
+        "flags"
+      ],
+      "title": "QuoteColumns",
+      "type": "object"
+    },
+    "SSVIBlock": {
+      "properties": {
+        "butterfly_margin": {
+          "description": "2 - eta(1+|rho|); >= 0 means no butterfly arbitrage by Gatheral-Jacquier Cor. 4.1",
+          "title": "Butterfly Margin",
+          "type": "number"
+        },
+        "eta": {
+          "title": "Eta",
+          "type": "number"
+        },
+        "gamma": {
+          "title": "Gamma",
+          "type": "number"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "min_dw_dT": {
+          "description": "min increase in total variance between expiries",
+          "title": "Min Dw Dt",
+          "type": "number"
+        },
+        "min_g": {
+          "description": "min Durrleman g(k) on a grid over fitted slices",
+          "title": "Min G",
+          "type": "number"
+        },
+        "rho": {
+          "title": "Rho",
+          "type": "number"
+        },
+        "success": {
+          "title": "Success",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rho",
+        "eta",
+        "gamma",
+        "butterfly_margin",
+        "min_g",
+        "min_dw_dT",
+        "success",
+        "message"
+      ],
+      "title": "SSVIBlock",
+      "type": "object"
+    },
+    "SmileStats": {
+      "properties": {
+        "atm": {
+          "description": "ATM vol, vol points",
+          "title": "Atm",
+          "type": "number"
+        },
+        "bf25": {
+          "description": "25-delta butterfly, vol points",
+          "title": "Bf25",
+          "type": "number"
+        },
+        "call25": {
+          "title": "Call25",
+          "type": "number"
+        },
+        "put25": {
+          "title": "Put25",
+          "type": "number"
+        },
+        "rr25": {
+          "description": "25-delta risk reversal, call minus put, vol points",
+          "title": "Rr25",
+          "type": "number"
+        }
+      },
+      "required": [
+        "atm",
+        "rr25",
+        "bf25",
+        "call25",
+        "put25"
+      ],
+      "title": "SmileStats",
+      "type": "object"
+    },
+    "ViolationOut": {
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "expiry": {
+          "title": "Expiry",
+          "type": "string"
+        },
+        "instruments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Instruments",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "vertical",
+            "butterfly",
+            "calendar"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "mid",
+            "tradeable"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "size_usd": {
+          "title": "Size Usd",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "level",
+        "expiry",
+        "instruments",
+        "size_usd",
+        "detail"
+      ],
+      "title": "ViolationOut",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "arbitrage": {
+      "$ref": "#/$defs/ArbBlock"
+    },
+    "cleaning": {
+      "$ref": "#/$defs/Cleaning"
+    },
+    "currency": {
+      "enum": [
+        "BTC",
+        "ETH"
+      ],
+      "title": "Currency",
+      "type": "string"
+    },
+    "expiries": {
+      "items": {
+        "$ref": "#/$defs/Expiry"
+      },
+      "title": "Expiries",
+      "type": "array"
+    },
+    "index_price": {
+      "title": "Index Price",
+      "type": "number"
+    },
+    "iv_check": {
+      "$ref": "#/$defs/IVCheck"
+    },
+    "local_vol": {
+      "$ref": "#/$defs/LocalVol"
+    },
+    "source": {
+      "default": "Deribit public API (get_book_summary_by_currency, ticker)",
+      "title": "Source",
+      "type": "string"
+    },
+    "ssvi": {
+      "$ref": "#/$defs/SSVIBlock"
+    },
+    "tenors": {
+      "additionalProperties": {
+        "$ref": "#/$defs/SmileStats"
+      },
+      "title": "Tenors",
+      "type": "object"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "currency",
+    "ts",
+    "index_price",
+    "ssvi",
+    "expiries",
+    "tenors",
+    "arbitrage",
+    "local_vol",
+    "cleaning",
+    "iv_check"
+  ],
+  "title": "Bundle",
+  "type": "object"
+}

@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+worker/data/
+# Node
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+web/test-results/
+web/playwright-report/
+web/.lighthouseci/
+# Local
+.env*
+!.env.example
+.DS_Store
+media/frames/

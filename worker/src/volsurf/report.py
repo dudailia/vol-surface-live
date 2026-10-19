@@ -1,0 +1,304 @@
+"""Daily report: the 24 hours to 00:00 UTC, built only from stored snapshot bundles."""
+
+from __future__ import annotations
+
+import io
+import json
+import logging
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
+
+import numpy as np
+import pandas as pd
+from pydantic import BaseModel, Field
+
+from .blob import Publisher
+from .bundle import ViolationOut
+from .clean import QUALITY_REASONS, SELECTION_REASONS
+from .config import CURRENCIES, Settings
+from .derived import TENORS_DAYS, forward_delta_k, theta_interpolator
+from .ssvi import SSVIParams, total_variance
+from .store import Store
+
+log = logging.getLogger(__name__)
+
+REPORT_VERSION = 1
+SNAPSHOTS_PER_DAY = 288
+# How far from the target time a snapshot may be and still stand in for it.
+MATCH_WINDOW = timedelta(minutes=30)
+# Points on the smile for "biggest moves": put deltas as call deltas (25P = 0.75).
+GRID_POINTS: tuple[tuple[str, float | None], ...] = (
+    ("10P", 0.90), ("25P", 0.75), ("ATM", None), ("25C", 0.25), ("10C", 0.10))
+
+
+class TenorRow(BaseModel):
+    tenor: str
+    atm: float
+    atm_chg: float | None
+    rr25: float
+    rr25_chg: float | None
+    bf25: float
+    bf25_chg: float | None
+
+
+class Move(BaseModel):
+    tenor: str
+    point: str = Field(description="10P, 25P, ATM, 25C or 10C (forward delta)")
+    vol: float
+    change: float = Field(description="vol points over 24 hours")
+
+
+class ArbExample(ViolationOut):
+    ts: datetime
+
+
+class ArbDay(BaseModel):
+    snapshots_checked: int
+    snapshots_with_mid: int
+    snapshots_with_tradeable: int
+    totals: dict[str, dict[str, int]]
+    largest: list[ArbExample]
+
+
+class FitDay(BaseModel):
+    rmse_median: float
+    rmse_max: float
+    inside_spread_median: float | None
+    worst_expiry: str
+    worst_expiry_rmse: float
+
+
+class DataDay(BaseModel):
+    snapshots_expected: int
+    snapshots_received: int
+    quotes_raw_median: float
+    quotes_kept_median: float
+    dropped_total: dict[str, int]
+    iv_check_max_gap_pts: float | None
+
+
+class CurrencyReport(BaseModel):
+    currency: str
+    surface_ts: datetime
+    previous_ts: datetime | None
+    index_price: float
+    index_change_pct: float | None
+    rho: float
+    tenors: list[TenorRow]
+    biggest_moves: list[Move]
+    arbitrage: ArbDay
+    fit: FitDay
+    data: DataDay
+
+
+class Report(BaseModel):
+    version: int = REPORT_VERSION
+    date: date
+    period_start: datetime
+    period_end: datetime
+    generated_at: datetime
+    late: bool
+    currencies: dict[str, CurrencyReport]
+
+
+def surface(b: dict[str, Any]) -> tuple[np.ndarray, np.ndarray, SSVIParams]:
+    T = np.array([e["T"] for e in b["expiries"]])
+    th = np.array([e["theta"] for e in b["expiries"]])
+    s = b["ssvi"]
+    return T, th, SSVIParams(s["rho"], s["eta"], s["gamma"])
+
+
+def grid_vols(b: dict[str, Any]) -> dict[tuple[str, str], float]:
+    """Vol (points) at each fixed tenor x delta point covered by the bundle's expiries."""
+    T, th, p = surface(b)
+    interp = theta_interpolator(T, th)
+    out: dict[tuple[str, str], float] = {}
+    for d in TENORS_DAYS:
+        t = d / 365.0
+        if t < T[0] or t > T[-1]:
+            continue
+        theta = float(interp(t))
+        for name, delta in GRID_POINTS:
+            k = 0.0 if delta is None else forward_delta_k(theta, p, delta)
+            out[(f"{d}d", name)] = float(np.sqrt(
+                total_variance(k, theta, p.rho, p.eta, p.gamma) / t)) * 100
+    return out
+
+
+def _pick(bundles: list[dict[str, Any]], target: datetime) -> dict[str, Any] | None:
+    best = min(bundles, key=lambda b: abs(_ts(b) - target), default=None)
+    if best is None or abs(_ts(best) - target) > MATCH_WINDOW:
+        return None
+    return best
+
+
+def _ts(b: dict[str, Any]) -> datetime:
+    return datetime.fromisoformat(b["ts"])
+
+
+def _chg(a: float, b: float | None) -> float | None:
+    return None if b is None else round(a - b, 4)
+
+
+def currency_report(
+    currency: str,
+    day: list[dict[str, Any]],
+    end: dict[str, Any],
+    start: dict[str, Any] | None,
+) -> CurrencyReport:
+    """``day``: every bundle in the period; ``end``/``start``: surfaces at its two ends."""
+    rows = []
+    for tenor, s in end["tenors"].items():
+        prev = start["tenors"].get(tenor) if start else None
+        rows.append(TenorRow(
+            tenor=tenor,
+            atm=round(s["atm"], 4), atm_chg=_chg(s["atm"], prev and prev["atm"]),
+            rr25=round(s["rr25"], 4), rr25_chg=_chg(s["rr25"], prev and prev["rr25"]),
+            bf25=round(s["bf25"], 4), bf25_chg=_chg(s["bf25"], prev and prev["bf25"]),
+        ))
+
+    moves: list[Move] = []
+    if start is not None:
+        g1, g0 = grid_vols(end), grid_vols(start)
+        for key in g1.keys() & g0.keys():
+            moves.append(Move(tenor=key[0], point=key[1], vol=round(g1[key], 4),
+                              change=round(g1[key] - g0[key], 4)))
+        moves.sort(key=lambda m: -abs(m.change))
+        moves = moves[:5]
+
+    totals = {lvl: {"vertical": 0, "butterfly": 0, "calendar": 0}
+              for lvl in ("mid", "tradeable")}
+    examples: list[ArbExample] = []
+    with_mid = with_trade = 0
+    for b in day:
+        c = b["arbitrage"]["counts"]
+        for lvl in totals:
+            for kind in totals[lvl]:
+                totals[lvl][kind] += c[lvl][kind]
+        with_mid += any(c["mid"].values())
+        with_trade += any(c["tradeable"].values())
+        examples += [ArbExample(**v, ts=_ts(b)) for v in b["arbitrage"]["violations"]]
+    examples.sort(key=lambda v: (v.level != "tradeable", -v.size_usd))
+
+    rmse = [(e["rmse_vol_pts"], e["code"]) for e in end["expiries"]]
+    all_rmse = [e["rmse_vol_pts"] for b in day for e in b["expiries"]]
+    inside = [e["inside_spread"] for b in day for e in b["expiries"]
+              if e["inside_spread"] is not None]
+    worst = max(rmse)
+    dropped = {r: sum(b["cleaning"]["dropped"].get(r, 0) for b in day)
+               for r in (*SELECTION_REASONS, *QUALITY_REASONS)}
+    gaps = [b["iv_check"]["max_gap_pts"] for b in day if b["iv_check"]["max_gap_pts"] is not None]
+
+    return CurrencyReport(
+        currency=currency,
+        surface_ts=_ts(end),
+        previous_ts=_ts(start) if start else None,
+        index_price=end["index_price"],
+        index_change_pct=(round((end["index_price"] / start["index_price"] - 1) * 100, 4)
+                          if start else None),
+        rho=round(end["ssvi"]["rho"], 4),
+        tenors=rows,
+        biggest_moves=moves,
+        arbitrage=ArbDay(snapshots_checked=len(day), snapshots_with_mid=with_mid,
+                         snapshots_with_tradeable=with_trade, totals=totals,
+                         largest=examples[:10]),
+        fit=FitDay(rmse_median=round(float(np.median(all_rmse)), 4),
+                   rmse_max=round(float(np.max(all_rmse)), 4),
+                   inside_spread_median=(round(float(np.median(inside)), 4) if inside
+                                         else None),
+                   worst_expiry=worst[1], worst_expiry_rmse=round(worst[0], 4)),
+        data=DataDay(
+            snapshots_expected=SNAPSHOTS_PER_DAY, snapshots_received=len(day),
+            quotes_raw_median=float(np.median([b["cleaning"]["n_raw"] for b in day])),
+            quotes_kept_median=float(np.median([b["cleaning"]["n_kept"] for b in day])),
+            dropped_total=dropped,
+            iv_check_max_gap_pts=round(max(gaps), 4) if gaps else None),
+    )
+
+
+def build_report(store: Store, day: date, now: datetime | None = None) -> Report:
+    start = datetime(day.year, day.month, day.day, tzinfo=UTC)
+    end = start + timedelta(days=1)
+    now = now or datetime.now(UTC)
+    out: dict[str, CurrencyReport] = {}
+    for cur in CURRENCIES:
+        paths = [*store.bundle_paths(cur, f"{start:%Y-%m-%d}"),
+                 *store.bundle_paths(cur, f"{end:%Y-%m-%d}")]
+        bundles = [store.read_bundle(p) for p in paths]
+        in_day = [b for b in bundles if start <= _ts(b) < end]
+        b_end = _pick(bundles, end)
+        if b_end is None or not in_day:
+            log.warning("no bundles to report for %s on %s", cur, day)
+            continue
+        # The previous day's end-of-day surface may live in yesterday's folder.
+        prev = bundles + [store.read_bundle(p) for p in
+                          store.bundle_paths(cur, f"{start - timedelta(days=1):%Y-%m-%d}")]
+        out[cur] = currency_report(cur, in_day, b_end, _pick(prev, start))
+    return Report(date=day, period_start=start, period_end=end, generated_at=now,
+                  late=now - end > timedelta(minutes=15), currencies=out)
+
+
+def compact_surface(b: dict[str, Any]) -> dict[str, Any]:
+    """What the history slider needs to draw and morph a past surface (about 1 KB)."""
+    return {
+        "ts": b["ts"],
+        "index_price": b["index_price"],
+        "ssvi": {k: b["ssvi"][k] for k in ("rho", "eta", "gamma")},
+        "expiries": [{"code": e["code"], "T": e["T"], "theta": e["theta"],
+                      "atm": e["stats"]["atm"]} for e in b["expiries"]],
+    }
+
+
+def hourly_raw(store: Store, cur: str, day: str) -> bytes | None:
+    """The day's raw quotes thinned to the on-the-hour snapshots, as zstd Parquet."""
+    df = store.read_raw_day(cur, day)
+    if df.empty:
+        return None
+    ts = pd.to_datetime(df["ts"], utc=True)
+    keep = df[ts.dt.minute < 5]
+    buf = io.BytesIO()
+    keep.to_parquet(buf, compression="zstd", index=False)
+    return buf.getvalue()
+
+
+def publish(settings: Settings, report: Report, pub: Publisher | None = None) -> None:
+    """About 7 uploads a day: report, report index, per-currency history and raw files."""
+    store = Store(settings.data_dir)
+    pub = pub or Publisher(settings.data_dir)
+    day = f"{report.date:%Y-%m-%d}"
+    data = report.model_dump(mode="json")
+    local = settings.data_dir / "reports" / f"{day}.json"
+    local.parent.mkdir(parents=True, exist_ok=True)
+    local.write_text(json.dumps(data, indent=1))
+    pub.put_json(f"reports/{day}.json", data, max_age=86400)
+
+    idx_path = settings.data_dir / "publish" / "history" / "index.json"
+    index: dict[str, Any] = (json.loads(idx_path.read_text()) if idx_path.exists()
+                             else {"version": 1, "days": {c: [] for c in CURRENCIES}})
+    for cur, cr in report.currencies.items():
+        end_day = f"{cr.surface_ts:%Y-%m-%d}"
+        p = store.bundle_paths(cur, end_day)
+        target = next((x for x in p if store.read_bundle(x)["ts"] == cr.surface_ts.isoformat()),
+                      None)
+        if target is None:
+            continue
+        b = store.read_bundle(target)
+        pub.put_json(f"history/{cur}/{day}.json", b, max_age=86400)
+        days = [d for d in index["days"].get(cur, []) if d["date"] != day]
+        days.append({"date": day, **compact_surface(b)})
+        index["days"][cur] = sorted(days, key=lambda d: d["date"])
+        raw = hourly_raw(store, cur, day)
+        if raw is not None:
+            pub.put(f"raw/{cur}/{day}.parquet", raw, "application/vnd.apache.parquet",
+                    max_age=86400)
+    pub.put_json("history/index.json", index, max_age=300)
+
+    reports = sorted({p.stem for p in (settings.data_dir / "reports").glob("*.json")})
+    pub.put_json("reports/index.json", {"version": 1, "dates": reports}, max_age=300)
+
+
+def run_report(settings: Settings, day_str: str, publish_it: bool = False) -> Report:
+    report = build_report(Store(settings.data_dir), date.fromisoformat(day_str))
+    if publish_it:
+        publish(settings, report)
+    return report

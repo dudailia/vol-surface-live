@@ -1,0 +1,414 @@
+{
+  "$defs": {
+    "ArbDay": {
+      "properties": {
+        "largest": {
+          "items": {
+            "$ref": "#/$defs/ArbExample"
+          },
+          "title": "Largest",
+          "type": "array"
+        },
+        "snapshots_checked": {
+          "title": "Snapshots Checked",
+          "type": "integer"
+        },
+        "snapshots_with_mid": {
+          "title": "Snapshots With Mid",
+          "type": "integer"
+        },
+        "snapshots_with_tradeable": {
+          "title": "Snapshots With Tradeable",
+          "type": "integer"
+        },
+        "totals": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Totals",
+          "type": "object"
+        }
+      },
+      "required": [
+        "snapshots_checked",
+        "snapshots_with_mid",
+        "snapshots_with_tradeable",
+        "totals",
+        "largest"
+      ],
+      "title": "ArbDay",
+      "type": "object"
+    },
+    "ArbExample": {
+      "properties": {
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "expiry": {
+          "title": "Expiry",
+          "type": "string"
+        },
+        "instruments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Instruments",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "vertical",
+            "butterfly",
+            "calendar"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "mid",
+            "tradeable"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "size_usd": {
+          "title": "Size Usd",
+          "type": "number"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "level",
+        "expiry",
+        "instruments",
+        "size_usd",
+        "detail",
+        "ts"
+      ],
+      "title": "ArbExample",
+      "type": "object"
+    },
+    "CurrencyReport": {
+      "properties": {
+        "arbitrage": {
+          "$ref": "#/$defs/ArbDay"
+        },
+        "biggest_moves": {
+          "items": {
+            "$ref": "#/$defs/Move"
+          },
+          "title": "Biggest Moves",
+          "type": "array"
+        },
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/DataDay"
+        },
+        "fit": {
+          "$ref": "#/$defs/FitDay"
+        },
+        "index_change_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Index Change Pct"
+        },
+        "index_price": {
+          "title": "Index Price",
+          "type": "number"
+        },
+        "previous_ts": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Previous Ts"
+        },
+        "rho": {
+          "title": "Rho",
+          "type": "number"
+        },
+        "surface_ts": {
+          "format": "date-time",
+          "title": "Surface Ts",
+          "type": "string"
+        },
+        "tenors": {
+          "items": {
+            "$ref": "#/$defs/TenorRow"
+          },
+          "title": "Tenors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "currency",
+        "surface_ts",
+        "previous_ts",
+        "index_price",
+        "index_change_pct",
+        "rho",
+        "tenors",
+        "biggest_moves",
+        "arbitrage",
+        "fit",
+        "data"
+      ],
+      "title": "CurrencyReport",
+      "type": "object"
+    },
+    "DataDay": {
+      "properties": {
+        "dropped_total": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Dropped Total",
+          "type": "object"
+        },
+        "iv_check_max_gap_pts": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Iv Check Max Gap Pts"
+        },
+        "quotes_kept_median": {
+          "title": "Quotes Kept Median",
+          "type": "number"
+        },
+        "quotes_raw_median": {
+          "title": "Quotes Raw Median",
+          "type": "number"
+        },
+        "snapshots_expected": {
+          "title": "Snapshots Expected",
+          "type": "integer"
+        },
+        "snapshots_received": {
+          "title": "Snapshots Received",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "snapshots_expected",
+        "snapshots_received",
+        "quotes_raw_median",
+        "quotes_kept_median",
+        "dropped_total",
+        "iv_check_max_gap_pts"
+      ],
+      "title": "DataDay",
+      "type": "object"
+    },
+    "FitDay": {
+      "properties": {
+        "inside_spread_median": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inside Spread Median"
+        },
+        "rmse_max": {
+          "title": "Rmse Max",
+          "type": "number"
+        },
+        "rmse_median": {
+          "title": "Rmse Median",
+          "type": "number"
+        },
+        "worst_expiry": {
+          "title": "Worst Expiry",
+          "type": "string"
+        },
+        "worst_expiry_rmse": {
+          "title": "Worst Expiry Rmse",
+          "type": "number"
+        }
+      },
+      "required": [
+        "rmse_median",
+        "rmse_max",
+        "inside_spread_median",
+        "worst_expiry",
+        "worst_expiry_rmse"
+      ],
+      "title": "FitDay",
+      "type": "object"
+    },
+    "Move": {
+      "properties": {
+        "change": {
+          "description": "vol points over 24 hours",
+          "title": "Change",
+          "type": "number"
+        },
+        "point": {
+          "description": "10P, 25P, ATM, 25C or 10C (forward delta)",
+          "title": "Point",
+          "type": "string"
+        },
+        "tenor": {
+          "title": "Tenor",
+          "type": "string"
+        },
+        "vol": {
+          "title": "Vol",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tenor",
+        "point",
+        "vol",
+        "change"
+      ],
+      "title": "Move",
+      "type": "object"
+    },
+    "TenorRow": {
+      "properties": {
+        "atm": {
+          "title": "Atm",
+          "type": "number"
+        },
+        "atm_chg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Atm Chg"
+        },
+        "bf25": {
+          "title": "Bf25",
+          "type": "number"
+        },
+        "bf25_chg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Bf25 Chg"
+        },
+        "rr25": {
+          "title": "Rr25",
+          "type": "number"
+        },
+        "rr25_chg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rr25 Chg"
+        },
+        "tenor": {
+          "title": "Tenor",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tenor",
+        "atm",
+        "atm_chg",
+        "rr25",
+        "rr25_chg",
+        "bf25",
+        "bf25_chg"
+      ],
+      "title": "TenorRow",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "currencies": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CurrencyReport"
+      },
+      "title": "Currencies",
+      "type": "object"
+    },
+    "date": {
+      "format": "date",
+      "title": "Date",
+      "type": "string"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "late": {
+      "title": "Late",
+      "type": "boolean"
+    },
+    "period_end": {
+      "format": "date-time",
+      "title": "Period End",
+      "type": "string"
+    },
+    "period_start": {
+      "format": "date-time",
+      "title": "Period Start",
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "date",
+    "period_start",
+    "period_end",
+    "generated_at",
+    "late",
+    "currencies"
+  ],
+  "title": "Report",
+  "type": "object"
+}
