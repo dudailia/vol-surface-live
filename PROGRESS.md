@@ -291,3 +291,24 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - **Quality:** Lighthouse mobile 93 to 97 and desktop 100 for performance, 100 for every other category; CLS 0.05 mobile, at most 0.03 desktop. Worker 67 tests, Vitest 15, Playwright 25, ruff and mypy strict clean. CI green through "README: one Vitest entry"; the last runs were still going at 04:50.
 - **Tonight at 00:00 UTC** the worker writes the first report made entirely on Fly, the first with 24-hour changes, the first with DVOL and realized vol at midnight, and (if both ends carry it) the first fitted with eSSVI.
 - **Questions for the owner** are unchanged: repo public, the default-model rule, Fly cost and retention (see Session 3).
+
+## Session 5 (2026-10-20, from 15:20 UTC): budget under $5 a month
+
+The owner set a hard rule: under $5 a month across every service, target about $2 to $3. The audit found Fly at about **$5.00** (512 MB machine in London $4.19, 5 GB volume $0.75, data a few cents). The Session 3 estimate of "$3 to $4" was wrong: it used the cheapest region's price and left out the volume. Now **about $2.65**. Details, sources and stop commands: `COSTS.md`.
+
+- **Fly, 16:00 UTC:** one machine, shared-cpu-1x **256 MB** (was 512), on a new **1 GB** volume (was 5 GB). The data moved over by backup and restore: one snapshot (15:40 or 15:45) may be missing, nothing else. The old volume is deleted. Shared IPv4 and IPv6 only, no dedicated IPv4, no certificates, no add-ons. Fly has no spending limit or billing alert ("We don't support billing alerts (yet)").
+- **256 MB works.** Idle 130 MB, peak 141 MB, no swap used over the first snapshot cycles (it was 198 MB on the old code). Three changes made the room:
+  - the daily report keeps slim copies of the day's snapshots and reloads only the two ends: +7 MB instead of +90 MB for 62 snapshots (a full day would have been several hundred MB, risky even at 512 MB). The 19 October report rebuilt this way is identical to the published one;
+  - compaction and the hourly raw export stream one snapshot at a time: +20 MB instead of +181 MB for 171 snapshots;
+  - `malloc_trim` after each job, `MALLOC_ARENA_MAX=2`, Arrow on the system allocator, and 512 MB of swap on the root disk as a safety net (not billed while running).
+  Tonight's 00:00 job is the first full test at 256 MB; check `/healthz` (`last_report` should read 2026-10-20) tomorrow.
+- **Retention:** raw quotes 14 days (was 180), bundles 3 days, and a guard that deletes the oldest compacted days if `/data` passes 80%.
+- **Data transfer:** Vercel caches the live snapshot, `/api/latest` and the posters for 5 minutes (was 1), the hourly history for 15, the archive indexes for an hour. Checked: repeated requests, including the browser's `no-cache` polls, are CDN hits; the page is served prerendered. The worker gzips its JSON (latest.json 24 KB). Fly's outbound data is about 10 MB a day.
+- **Vercel:** Hobby, no contract, no integrations. Blob: 8 uploads a day, about 0.6 MB stored. Reading the indexes hourly instead of every 5 minutes keeps cache-miss reads well under Hobby's 10,000 a month (at every 5 minutes, steady traffic could have reached about 17,000 and locked Blob for 30 days).
+- **GitHub Actions** (private repo, 2,000 free minutes a month): about 344 minutes used this month, 308 of them today. CI now runs the worker and web jobs only when their code changes (docs-only pushes run the copy check alone), and a newer push cancels an older run.
+- **Weekly audit:** `.github/workflows/fly-audit.yml` (Mondays 07:00 UTC) runs `scripts/fly_audit.py` against `scripts/fly-allowed.json` and opens an issue on any difference. It uses a read-only Fly token stored as the `FLY_API_TOKEN` secret, valid one year.
+- **Tests:** worker 70 (new: schema-unifying compaction, 14-day retention and the disk guard, hourly raw export), ruff and mypy clean; web Vitest 15, Playwright 25.
+
+### Questions for the owner
+1. **GitHub budget.** I cannot read GitHub billing without the `user` scope. If the account has a payment method, set an Actions budget of $0 (GitHub Settings, Billing and licensing, Budgets and alerts) so CI can never bill.
+2. **Region.** Moving the worker from London to Ashburn (`iad`) would save $0.30 a month ($2.19 against $2.49). London is next to Deribit; the saving is small. Keep London?

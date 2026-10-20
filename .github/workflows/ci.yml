@@ -8,9 +8,44 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch cancels the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  worker:
+  # The repository is private, so Actions minutes count against GitHub Free's 2,000 a
+  # month. Docs-only pushes run the copy check alone; each job runs when its code changes.
+  changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      worker: ${{ steps.paths.outputs.worker }}
+      web: ${{ steps.paths.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: paths
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+          else
+            files=$(git ls-files)
+          fi
+          echo "$files"
+          if grep -qE '^(worker/|schema/|\.github/workflows/ci\.yml)' <<< "$files"; then echo worker=true; else echo worker=false; fi >> "$GITHUB_OUTPUT"
+          if grep -qE '^(web/|schema/|scripts/(check-copy\.mjs|quality\.sh)|\.github/workflows/ci\.yml)' <<< "$files"; then echo web=true; else echo web=false; fi >> "$GITHUB_OUTPUT"
+      - name: Copy rules in Markdown (no em dashes, no hype words)
+        run: node scripts/check-copy.mjs
+
+  worker:
+    needs: changes
+    if: needs.changes.outputs.worker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: worker
@@ -32,8 +67,12 @@ jobs:
           git diff --exit-code ../schema
 
   web:
+    needs: [changes, worker]
+    if: >-
+      always() && needs.changes.outputs.web == 'true' &&
+      (needs.worker.result == 'success' || needs.worker.result == 'skipped')
     runs-on: ubuntu-latest
-    needs: worker
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web

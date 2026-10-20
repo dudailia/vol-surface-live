@@ -40,10 +40,10 @@ flowchart LR
     C[clean quotes<br/>solve implied vol] --> F[fit SSVI and eSSVI<br/>no-arbitrage constraints]
     F --> A[check raw quotes<br/>for static arbitrage]
     A --> B[bundle per snapshot]
-    B --> P[(Parquet and bundles<br/>on a 5 GB volume)]
+    B --> P[(Parquet and bundles<br/>on a 1 GB volume)]
     B --> R[00:00 UTC daily report]
   end
-  W -->|/latest.json, /history.json, /vrp.json<br/>bearer token| V[Next.js on Vercel<br/>60-second cache]
+  W -->|/latest.json, /history.json, /vrp.json<br/>bearer token| V[Next.js on Vercel<br/>5-minute cache]
   R -->|about 8 uploads a day| BL[(Vercel Blob<br/>public archive)]
   BL --> V
   V --> U[vol.iliaduda.com]
@@ -176,6 +176,10 @@ ffmpeg -framerate 30 -i frames/f%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -
 - SSVI's single ρ cannot follow skew that changes with maturity; eSSVI can, but neither reproduces every quote. Per-expiry errors for both models are in every snapshot.
 - "Tradeable at quoted prices" ignores fees, margin and size.
 - Snapshots are five minutes apart; nothing in between is seen.
+
+## Costs
+
+About $2.65 a month in total: one 256 MB machine and a 1 GB volume on Fly; Vercel's free Hobby plan for the page and the archive. Every resource, its price and source, the guardrails (a weekly audit that opens an issue if anything extra appears on Fly) and the commands to stop everything are in [COSTS.md](COSTS.md).
 
 ## Independence
 

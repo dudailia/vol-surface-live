@@ -139,7 +139,7 @@ export default function VolSurface() {
             published vols to a median {v('vsBtcIvGapMedian')} vol points. Quotes with no bid, crossed markets, spreads over
             15 vol points and expiries under two days are dropped, each with its reason logged. Raw quotes go to Parquet on a
             volume; at 00:00 UTC the worker writes a JSON report of the day and publishes it, with the end-of-day surface,
-            to a public archive. The page, on Vercel, reads the worker through a one-minute cache.
+            to a public archive. The page, on Vercel, reads the worker through a five-minute cache, so visitors never reach it.
           </p>
           <p>
             The tests hold Black-76 prices and Greeks to QuantLib within 10<sup>−10</sup>; recover known SSVI parameters to

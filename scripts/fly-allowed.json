@@ -1,0 +1,9 @@
+{
+  "org": "personal",
+  "apps": ["vol-surface-live"],
+  "machines": [{ "region": "lhr", "cpu_kind": "shared", "cpus": 1, "memory_mb": 256 }],
+  "volumes": [{ "size_gb": 1 }],
+  "ip_types": ["shared_v4", "v6"],
+  "certificates": 0,
+  "snapshot_gb_max": 10
+}

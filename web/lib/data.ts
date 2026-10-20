@@ -119,21 +119,24 @@ export async function getVrp(): Promise<Vrp | null> {
   )
 }
 
+// The archive indexes change once a day, at 00:00 UTC. Reading them hourly keeps Blob reads
+// (cache misses count against Hobby's 10,000 a month) to about 24 a day each.
 export async function getHistoryIndex(): Promise<HistoryIndex | null> {
   'use cache'
-  cacheLife({ stale: 300, revalidate: 300, expire: 86400 })
+  cacheLife({ stale: 300, revalidate: 3600, expire: 86400 })
   return parse(historyIndex, await getJSON(BLOB_BASE_URL, 'history/index.json'), 'history index')
 }
 
+// Hourly surfaces change once an hour; every 15 minutes is enough and keeps Fly's egress low.
 export async function getHourly(): Promise<Record<string, CompactSurface[]>> {
   'use cache'
-  cacheLife({ stale: 300, revalidate: 300, expire: 3600 })
+  cacheLife({ stale: 300, revalidate: 900, expire: 3600 })
   return parse(hourly, await getJSON(WORKER_URL, 'history.json', true), 'hourly history') ?? {}
 }
 
 export async function getReportDates(): Promise<string[]> {
   'use cache'
-  cacheLife({ stale: 300, revalidate: 300, expire: 86400 })
+  cacheLife({ stale: 300, revalidate: 3600, expire: 86400 })
   return parse(reportIndex, await getJSON(BLOB_BASE_URL, 'reports/index.json'), 'report index')?.dates ?? []
 }
 

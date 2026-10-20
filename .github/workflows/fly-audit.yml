@@ -1,0 +1,49 @@
+name: Fly budget audit
+
+# Weekly: compare what runs on Fly with scripts/fly-allowed.json and open an issue if
+# anything extra appears (a second machine, a bigger volume, a dedicated IPv4, an add-on).
+# Uses a read-only org token (secret FLY_API_TOKEN); it cannot change anything on Fly.
+on:
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        with:
+          version: 0.4.40
+      - name: Compare Fly with the allowed list
+        id: audit
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          set +e
+          python3 scripts/fly_audit.py > audit.txt
+          code=$?
+          cat audit.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Open an issue on any difference
+        if: steps.audit.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Fly budget audit: resources outside the allowed list"
+          if [ "${{ steps.audit.outputs.code }}" = "2" ]; then title="Fly budget audit could not read Fly"; fi
+          body="$(printf 'The weekly audit found:\n\n```\n%s\n```\n\nAllowed list: `scripts/fly-allowed.json`. Costs and stop commands: `COSTS.md`.\n\nRun: %s' "$(cat audit.txt)" "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")"
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+          exit 1
