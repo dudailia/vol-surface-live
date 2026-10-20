@@ -28,6 +28,8 @@ test.describe('front page', () => {
 
   test('server HTML: each hero number once, wording matches snapshot age, no repo link', async ({ request }) => {
     const html = await (await request.get('/')).text()
+    // Every section is in the HTML in order, not streamed as hidden blocks swapped in by script.
+    expect(html).not.toMatch(/<div hidden id="S:\d+"/)
     const text = html
       .replace(/<script[\s\S]*?<\/script>/g, ' ')
       .replace(/<[^>]+>/g, '')
@@ -180,9 +182,8 @@ test.describe('front page', () => {
   test('what this is: index links all point at headings on the page', async ({ page }) => {
     await page.goto('/')
     const links = page.getByRole('navigation', { name: 'On this page' }).getByRole('link')
-    const n = await links.count()
-    expect(n).toBeGreaterThanOrEqual(7)
-    for (let i = 0; i < n; i++) {
+    await expect(links).toHaveCount(7)
+    for (let i = 0; i < 7; i++) {
       const href = await links.nth(i).getAttribute('href')
       expect(await page.locator(`h2${href}`).count(), href ?? '').toBe(1)
     }

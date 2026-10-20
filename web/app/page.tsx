@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { LiveProvider } from '@/components/LiveProvider'
 import { Explainer } from '@/components/sections/Explainer'
 import { Footer } from '@/components/sections/Footer'
@@ -41,30 +40,16 @@ export default async function Page() {
   return (
     <LiveProvider initial={slim(latest)} frame={frame} fetchedAt={fetchedAt}>
       <main>
-        {/* Each section is its own Suspense boundary, so React hydrates them as separate
-            tasks and can yield between them instead of one long task on a slow phone. */}
+        {/* No Suspense boundaries here: they made the server stream sections as hidden
+            blocks swapped in by script, which hides the content without JavaScript. */}
         <Hero />
-        <Suspense fallback={null}>
-          <About />
-        </Suspense>
-        <Suspense fallback={null}>
-          <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <Explainer />
-        </Suspense>
-        <Suspense fallback={null}>
-          <Compare />
-        </Suspense>
-        <Suspense fallback={null}>
-          <ImpliedRealized views={vrpViews} />
-        </Suspense>
-        <Suspense fallback={null}>
-          <LocalVol />
-        </Suspense>
-        <Suspense fallback={null}>
-          <History daily={index?.days ?? {}} hourly={hourly} />
-        </Suspense>
+        <About />
+        <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />
+        <Explainer />
+        <Compare />
+        <ImpliedRealized views={vrpViews} />
+        <LocalVol />
+        <History daily={index?.days ?? {}} hourly={hourly} />
         <Methods bundles={latest} />
       </main>
       <Footer />
