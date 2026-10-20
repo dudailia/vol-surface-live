@@ -39,12 +39,7 @@ const reportIndex = z.object({ version: z.number(), dates: z.array(z.string()) }
 
 export type Latest = Partial<Record<Currency, Bundle>>
 
-/**
- * ``revalidate`` puts the response in the shared fetch cache too. The page and /api/latest run
- * in separate functions with separate in-memory caches; sharing the fetch means Fly serves
- * each file once per period, however many functions or visitors ask.
- */
-async function getJSON(base: string | undefined, rel: string, auth = false, revalidate = 300): Promise<unknown> {
+async function getJSON(base: string | undefined, rel: string, auth = false): Promise<unknown> {
   if (!base) return null
   try {
     if (!/^https?:/.test(base)) {
@@ -53,8 +48,6 @@ async function getJSON(base: string | undefined, rel: string, auth = false, reva
     const res = await fetch(`${base.replace(/\/$/, '')}/${rel}`, {
       headers: auth && LATEST_TOKEN ? { authorization: `Bearer ${LATEST_TOKEN}` } : {},
       signal: AbortSignal.timeout(8000),
-      cache: 'force-cache',
-      next: { revalidate },
     })
     return res.ok ? await res.json() : null
   } catch {
@@ -121,7 +114,7 @@ export async function getVrp(): Promise<Vrp | null> {
   'use cache'
   cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 })
   return (
-    parse(vrpSchema, await getJSON(WORKER_URL, 'vrp.json', true, 1800), 'vrp') ??
+    parse(vrpSchema, await getJSON(WORKER_URL, 'vrp.json', true), 'vrp') ??
     parse(vrpSchema, await getJSON(BLOB_BASE_URL, 'vrp.json'), 'vrp archive')
   )
 }
@@ -131,27 +124,27 @@ export async function getVrp(): Promise<Vrp | null> {
 export async function getHistoryIndex(): Promise<HistoryIndex | null> {
   'use cache'
   cacheLife({ stale: 300, revalidate: 3600, expire: 86400 })
-  return parse(historyIndex, await getJSON(BLOB_BASE_URL, 'history/index.json', false, 3600), 'history index')
+  return parse(historyIndex, await getJSON(BLOB_BASE_URL, 'history/index.json'), 'history index')
 }
 
 // Hourly surfaces change once an hour; every 15 minutes is enough and keeps Fly's egress low.
 export async function getHourly(): Promise<Record<string, CompactSurface[]>> {
   'use cache'
   cacheLife({ stale: 300, revalidate: 900, expire: 3600 })
-  return parse(hourly, await getJSON(WORKER_URL, 'history.json', true, 900), 'hourly history') ?? {}
+  return parse(hourly, await getJSON(WORKER_URL, 'history.json', true), 'hourly history') ?? {}
 }
 
 export async function getReportDates(): Promise<string[]> {
   'use cache'
   cacheLife({ stale: 300, revalidate: 3600, expire: 86400 })
-  return parse(reportIndex, await getJSON(BLOB_BASE_URL, 'reports/index.json', false, 3600), 'report index')?.dates ?? []
+  return parse(reportIndex, await getJSON(BLOB_BASE_URL, 'reports/index.json'), 'report index')?.dates ?? []
 }
 
 export async function getReport(date: string): Promise<Report | null> {
   'use cache'
   cacheLife({ stale: 3600, revalidate: 3600, expire: 86400 * 30 })
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
-  return parse(reportSchema, await getJSON(BLOB_BASE_URL, `reports/${date}.json`, false, 3600), `report ${date}`)
+  return parse(reportSchema, await getJSON(BLOB_BASE_URL, `reports/${date}.json`), `report ${date}`)
 }
 
 export async function getLatestReport(): Promise<Report | null> {
