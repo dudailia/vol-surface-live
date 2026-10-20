@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
 import { allSurfaces, modelFor, posterQuotes, surfaceOf, tenorsOf } from './bundle'
 import { getLatest } from './data'
-import { fixed, utcStamp } from './format'
+import { fixed, signed, utcStamp } from './format'
 import { sharedFrame } from './geometry'
 import { posterSvg } from './poster'
 
@@ -62,7 +62,7 @@ export async function shareImage() {
       <div style={{ position: 'absolute', left: 300, top: 34, width: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
         <div style={{ fontFamily: 'Source Serif 4', fontSize: 46, color: TEXT, lineHeight: 1.1 }}>{`${name} implied volatility`}</div>
         <div style={{ fontFamily: 'Source Code Pro', fontSize: 22, color: MUTED, marginTop: 14 }}>
-          {t30 ? `${model === 'essvi' ? 'eSSVI' : 'SSVI'} fit: 30-day ATM ${fixed(t30.atm)}%, 25-delta RR ${fixed(t30.rr25)}` : 'SSVI fit to Deribit quotes'}
+          {t30 ? `${model === 'essvi' ? 'eSSVI' : 'SSVI'} fit: 30-day ATM ${fixed(t30.atm)}%, 25-delta RR ${signed(t30.rr25)}` : 'Fitted to Deribit quotes'}
         </div>
         <div style={{ fontFamily: 'Source Code Pro', fontSize: 18, color: MUTED, marginTop: 8 }}>
           {`Deribit quotes at ${utcStamp(b.ts)}`}
