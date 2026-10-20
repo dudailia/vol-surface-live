@@ -6,13 +6,13 @@ import { Methods } from '@/components/sections/Methods'
 import { WhatMoved } from '@/components/sections/WhatMoved'
 import { Hero } from '@/components/surface/Hero'
 import { surfaceOf } from '@/lib/bundle'
-import { getHistoryIndex, getHourly, getLatest, getLatestReport } from '@/lib/data'
+import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime } from '@/lib/data'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
 
 export default async function Page() {
-  const [latest, report, index, hourly] = await Promise.all([
-    getLatest(),
+  const [{ bundles: latest, fetchedAt }, report, index, hourly] = await Promise.all([
+    getLatestWithTime(),
     getLatestReport(),
     getHistoryIndex(),
     getHourly(),
@@ -23,7 +23,7 @@ export default async function Page() {
   // The next 00:00 UTC after the latest snapshot, for "the first report is written at ...".
   const next = ts ? new Date(Date.UTC(new Date(ts).getUTCFullYear(), new Date(ts).getUTCMonth(), new Date(ts).getUTCDate() + 1)) : null
   return (
-    <LiveProvider initial={latest} frame={frame}>
+    <LiveProvider initial={latest} frame={frame} fetchedAt={fetchedAt}>
       <main>
         <Hero />
         <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />

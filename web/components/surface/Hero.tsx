@@ -165,10 +165,16 @@ export function Hero() {
             </button>
           </>
         ) : (
-          <>
-            Deribit quotes at <time dateTime={bundle.ts}>{utcStamp(bundle.ts)}</time>, refitted every five minutes.
-            {stale && ' This snapshot is more than 15 minutes old: the worker may be down.'}
-          </>
+          stale ? (
+            <>
+              Latest snapshot <time dateTime={bundle.ts}>{utcStamp(bundle.ts)}</time>. It is more than 15 minutes old, so the
+              worker that refits the surface may be down.
+            </>
+          ) : (
+            <>
+              Deribit quotes at <time dateTime={bundle.ts}>{utcStamp(bundle.ts)}</time>, refitted every five minutes.
+            </>
+          )
         )}
       </p>
     </>

@@ -63,10 +63,19 @@ function parse<T>(schema: z.ZodType<T>, data: unknown, what: string): T | null {
   return r.data
 }
 
-export async function getLatest(): Promise<Latest> {
+/** The live bundles and the moment they were fetched, so pages can tell a stale snapshot. */
+export async function getLatestWithTime(): Promise<{ bundles: Latest; fetchedAt: number }> {
   'use cache'
   // stale ≥ 5 min keeps the data in the App Shell; the client polls /api/latest for freshness.
   cacheLife({ stale: 300, revalidate: 60, expire: 900 })
+  return { bundles: await fetchLatest(), fetchedAt: Date.now() }
+}
+
+export async function getLatest(): Promise<Latest> {
+  return (await getLatestWithTime()).bundles
+}
+
+async function fetchLatest(): Promise<Latest> {
   const raw = (await getJSON(WORKER_URL, 'latest.json', true)) as Record<string, unknown> | null
   const out: Latest = {}
   for (const c of CURRENCIES) {

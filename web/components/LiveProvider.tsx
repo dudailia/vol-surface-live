@@ -39,16 +39,20 @@ const STALE_MS = 15 * 60_000
 export function LiveProvider({
   initial,
   frame,
+  fetchedAt,
   children,
 }: {
   initial: Partial<Record<Currency, Bundle>>
   frame: Frame
+  /** server time the bundles were fetched; the first render judges staleness by it */
+  fetchedAt: number
   children: React.ReactNode
 }) {
   const [bundles, setBundles] = useState(initial)
   const [currency, setCurrency] = useState<Currency>('BTC')
   const [history, setHistory] = useState<HistoryPick | null>(null)
-  const [now, setNow] = useState<number | null>(null)
+  // The server's clock until the client's takes over, so the stale notice is in the HTML.
+  const [now, setNow] = useState<number>(fetchedAt)
 
   useEffect(() => {
     let stop = false
@@ -84,7 +88,7 @@ export function LiveProvider({
   }, [])
 
   const bundle = bundles[currency]
-  const stale = now != null && bundle != null && now - Date.parse(bundle.ts) > STALE_MS
+  const stale = bundle != null && now - Date.parse(bundle.ts) > STALE_MS
 
   const value = useMemo<Live>(
     () => ({ currency, setCurrency, bundles, bundle, frame, history, setHistory, stale }),

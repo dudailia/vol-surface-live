@@ -26,6 +26,28 @@ test.describe('front page', () => {
     expect(errors).toEqual([])
   })
 
+  test('server HTML: each hero number once, wording matches snapshot age, no repo link', async ({ request }) => {
+    const html = await (await request.get('/')).text()
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/g, ' ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+    const m = /Thirty-day at-the-money vol is ([\d.]+)%\. 25\u2011delta (puts|calls) trade ([\d.]+) vol points/.exec(text)
+    expect(m, 'hero sentence with single numbers').not.toBeNull()
+    // A doubled number reads like "35.7%35.7%" or "3.73.7".
+    expect(text).not.toMatch(/(\d+\.\d)%?\1/)
+    const ts = /<time dateTime="([^"]+)"/.exec(html)?.[1]
+    expect(ts).toBeTruthy()
+    const old = Date.now() - Date.parse(ts!) > 15 * 60_000
+    if (old) {
+      expect(text).toContain('Latest snapshot')
+      expect(text).toContain('more than 15 minutes old')
+    } else {
+      expect(text).toContain('refitted every five minutes')
+    }
+    expect(html).not.toContain('github.com')
+  })
+
   for (const width of WIDTHS) {
     test(`screenshot at ${width}px`, async ({ page }) => {
       const errors = watchErrors(page)

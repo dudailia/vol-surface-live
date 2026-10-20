@@ -1,6 +1,6 @@
 import type { Bundle } from '@/lib/generated/bundle'
 import { fixed, utcStamp } from '@/lib/format'
-import { REPO_URL } from '@/lib/site'
+import { REPO_PUBLIC, REPO_URL } from '@/lib/site'
 
 /** Methods and limitations. Rules and counts come from the latest bundles, not from copy. */
 export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bundle>> }) {
@@ -112,10 +112,16 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
 
           <Block title="Source">
             <p>
-              The worker (Python) and this page (Next.js) are open source under the MIT licence, with tests, at{' '}
-              <a href={REPO_URL}>github.com/dudailia/vol-surface-live</a>. Daily reports are in the{' '}
-              <a href="/reports">report archive</a>. Built independently from public data. Latest snapshot{' '}
-              {utcStamp(b.ts)}.
+              {REPO_PUBLIC ? (
+                <>
+                  The worker (Python) and this page (Next.js) are open source under the MIT licence, with tests, at{' '}
+                  <a href={REPO_URL}>github.com/dudailia/vol-surface-live</a>.{' '}
+                </>
+              ) : (
+                'The worker is written in Python and this page in Next.js, both with tests. '
+              )}
+              Daily reports are in the <a href="/reports">report archive</a>. Built independently from public data. Latest
+              snapshot {utcStamp(b.ts)}.
             </p>
           </Block>
         </div>

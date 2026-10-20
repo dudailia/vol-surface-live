@@ -1,4 +1,4 @@
-import { AUTHOR_URL, REPO_URL } from '@/lib/site'
+import { AUTHOR_URL, REPO_PUBLIC, REPO_URL } from '@/lib/site'
 
 export function Footer() {
   return (
@@ -9,7 +9,7 @@ export function Footer() {
         </p>
         <p className="flex gap-5">
           <a href="/reports">Daily reports</a>
-          <a href={REPO_URL}>Source on GitHub</a>
+          {REPO_PUBLIC && <a href={REPO_URL}>Source on GitHub</a>}
         </p>
       </div>
     </footer>
