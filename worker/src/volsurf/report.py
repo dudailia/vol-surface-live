@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-import io
 import json
 import logging
 import os
+from collections.abc import Iterable
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import httpx
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from pydantic import BaseModel, Field
 
 from .blob import Publisher
@@ -21,7 +24,7 @@ from .config import CURRENCIES, Settings
 from .derived import TENORS_DAYS, delta_k, essvi_slice, ssvi_slice, theta_interpolator
 from .essvi import interp_rho_psi, theta_curve
 from .ssvi import SSVIParams
-from .store import Store
+from .store import Store, row_groups, unified_schema, write_tables
 
 log = logging.getLogger(__name__)
 
@@ -276,6 +279,28 @@ def vrp_at(store: Store, currency: str, at: datetime) -> VrpAtReport | None:
                        gap=None if r is None else round(dv[key] - r, 3))
 
 
+def _slim(b: dict[str, Any], path: Path) -> dict[str, Any]:
+    """What the day's statistics read from one snapshot, without its quotes and grids.
+
+    A day is 288 snapshots per currency; whole bundles would need several hundred MB. The
+    two surfaces at the ends of the day are reloaded in full by ``_full``.
+    """
+    def fits(expiries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{k: e[k] for k in ("code", "rmse_vol_pts", "inside_spread")} for e in expiries]
+
+    out = {"ts": b["ts"], "path": str(path), "arbitrage": b["arbitrage"],
+           "cleaning": {k: b["cleaning"][k] for k in ("dropped", "n_raw", "n_kept")},
+           "iv_check": {"max_gap_pts": b["iv_check"]["max_gap_pts"]},
+           "expiries": fits(b["expiries"])}
+    if b.get("essvi"):
+        out["essvi"] = {"expiries": fits(b["essvi"]["expiries"])}
+    return out
+
+
+def _full(store: Store, slim: dict[str, Any] | None) -> dict[str, Any] | None:
+    return store.read_bundle(Path(slim["path"])) if slim else None
+
+
 def build_report(store: Store, day: date, now: datetime | None = None) -> Report:
     start = datetime(day.year, day.month, day.day, tzinfo=UTC)
     end = start + timedelta(days=1)
@@ -284,16 +309,16 @@ def build_report(store: Store, day: date, now: datetime | None = None) -> Report
     for cur in CURRENCIES:
         paths = [*store.bundle_paths(cur, f"{start:%Y-%m-%d}"),
                  *store.bundle_paths(cur, f"{end:%Y-%m-%d}")]
-        bundles = [store.read_bundle(p) for p in paths]
+        bundles = [_slim(store.read_bundle(p), p) for p in paths]
         in_day = [b for b in bundles if start <= _ts(b) < end]
-        b_end = _pick(bundles, end)
+        b_end = _full(store, _pick(bundles, end))
         if b_end is None or not in_day:
             log.warning("no bundles to report for %s on %s", cur, day)
             continue
         # The previous day's end-of-day surface may live in yesterday's folder.
-        prev = bundles + [store.read_bundle(p) for p in
+        prev = bundles + [_slim(store.read_bundle(p), p) for p in
                           store.bundle_paths(cur, f"{start - timedelta(days=1):%Y-%m-%d}")]
-        out[cur] = currency_report(cur, in_day, b_end, _pick(prev, start))
+        out[cur] = currency_report(cur, in_day, b_end, _full(store, _pick(prev, start)))
         out[cur].vrp = vrp_at(store, cur, end)
     return Report(date=day, period_start=start, period_end=end, generated_at=now,
                   late=now - end > timedelta(minutes=15), currencies=out)
@@ -313,19 +338,29 @@ def compact_surface(b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _on_the_hour(df: pd.DataFrame) -> pd.DataFrame:
+    return df[pd.to_datetime(df["ts"], utc=True).dt.minute < 5]
+
+
 def hourly_raw(store: Store, cur: str, day: str) -> bytes | None:
-    """The day's raw quotes thinned to the on-the-hour snapshots, as zstd Parquet."""
-    df = store.read_raw_day(cur, day)
+    """The day's raw quotes thinned to the on-the-hour snapshots, as zstd Parquet.
+
+    Reads one snapshot (or one row group of a compacted day) at a time.
+    """
+    files = store.raw_day_files(cur, day)
     compacted = store.root / "raw-daily" / cur / f"{day}.parquet"
-    if df.empty and compacted.exists():
-        df = pd.read_parquet(compacted)
-    if df.empty:
+    tables: Iterable[pa.Table]
+    if files:
+        schema = unified_schema(files)
+        tables = (pq.read_table(f) for f in files)
+    elif compacted.exists():
+        schema = pq.read_schema(compacted).remove_metadata()
+        tables = row_groups(compacted)
+    else:
         return None
-    ts = pd.to_datetime(df["ts"], utc=True)
-    keep = df[ts.dt.minute < 5]
-    buf = io.BytesIO()
-    keep.to_parquet(buf, compression="zstd", index=False)
-    return buf.getvalue()
+    buf = pa.BufferOutputStream()
+    write_tables(tables, schema, buf, keep=_on_the_hour)
+    return bytes(buf.getvalue().to_pybytes())
 
 
 def _remote(rel: str) -> dict[str, Any] | None:

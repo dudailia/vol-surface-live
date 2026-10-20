@@ -1,5 +1,7 @@
 app = "vol-surface-live"
 primary_region = "lhr"   # Deribit's servers are in London
+# Swap on the root disk (not billed while the machine runs): headroom for the 256 MB machine.
+swap_size_mb = 512
 
 [build]
   dockerfile = "Dockerfile"
@@ -7,10 +9,15 @@ primary_region = "lhr"   # Deribit's servers are in London
 [env]
   VOLSURF_DATA = "/data"
   PORT = "8080"
+  # Fewer glibc arenas and Arrow on the system allocator, so malloc_trim can return memory.
+  MALLOC_ARENA_MAX = "2"
+  ARROW_DEFAULT_MEMORY_POOL = "system"
 
+# 1 GB: 14 days of compacted raw quotes, 3 days of bundles, today's five-minute files.
 [mounts]
-  source = "volsurf_data"
+  source = "volsurf_1g"
   destination = "/data"
+  initial_size = "1gb"
 
 [http_service]
   internal_port = 8080
@@ -27,6 +34,7 @@ primary_region = "lhr"   # Deribit's servers are in London
     method = "GET"
     path = "/healthz"
 
+# The smallest machine; see COSTS.md before changing anything here.
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"
+  memory = "256mb"

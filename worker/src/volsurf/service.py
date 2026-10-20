@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
 import json
 import logging
 import os
@@ -14,9 +15,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pandas as pd
+import pyarrow.parquet as pq
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
@@ -26,7 +30,7 @@ from .config import CURRENCIES, Settings
 from .deribit import DeribitClient
 from .pipeline import run_once, seed_holdout
 from .report import build_report, compact_surface, publish
-from .store import Store
+from .store import Store, unified_schema, write_tables
 from .vrp import compute as compute_vrp
 from .vrp import ours_series
 
@@ -34,7 +38,10 @@ log = logging.getLogger(__name__)
 
 STALE_AFTER = timedelta(minutes=15)
 KEEP_BUNDLE_DAYS = 3
-KEEP_RAW_DAYS = 180
+# Compacted raw quotes stay 14 days on the 1 GB volume; daily summaries live in the archive.
+KEEP_RAW_DAYS = 14
+# Safety net: above this share of the volume, the oldest compacted days go first.
+MAX_DISK_USED = 0.8
 
 
 class State:
@@ -44,18 +51,24 @@ class State:
 
 
 def compact_day(store: Store, cur: str, day: str) -> None:
-    """Merge a finished day's 5-minute raw files into one Parquet file and delete them."""
+    """Merge a finished day's 5-minute raw files into one Parquet file and delete them.
+
+    Streams one snapshot at a time, one row group each, so it fits a 256 MB machine.
+    """
     d = store.root / "raw" / cur / day
     if not d.is_dir():
         return
-    df = store.read_raw_day(cur, day)
-    out = store.root / "raw-daily" / cur / f"{day}.parquet"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(out, compression="zstd", index=False)
+    files = store.raw_day_files(cur, day)
+    if files:
+        out = store.root / "raw-daily" / cur / f"{day}.parquet"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        tmp = out.with_suffix(".tmp")
+        write_tables((pq.read_table(f) for f in files), unified_schema(files), tmp)
+        tmp.replace(out)
     shutil.rmtree(d)
 
 
-def prune(store: Store, today: datetime) -> None:
+def prune(store: Store, today: datetime, disk_usage: Any = None) -> None:
     for cur in CURRENCIES:
         for d in sorted((store.root / "bundles" / cur).glob("*")):
             if d.name < f"{today - timedelta(days=KEEP_BUNDLE_DAYS):%Y-%m-%d}":
@@ -63,6 +76,35 @@ def prune(store: Store, today: datetime) -> None:
         for f in sorted((store.root / "raw-daily" / cur).glob("*.parquet")):
             if f.stem < f"{today - timedelta(days=KEEP_RAW_DAYS):%Y-%m-%d}":
                 f.unlink()
+    # The volume is 1 GB: if it is still over MAX_DISK_USED, drop the oldest compacted days.
+    # Only where the data directory is its own volume, never on a shared laptop disk.
+    if disk_usage is None:
+        if not os.path.ismount(store.root):
+            return
+        disk_usage = shutil.disk_usage
+    oldest = sorted((f for cur in CURRENCIES
+                     for f in (store.root / "raw-daily" / cur).glob("*.parquet")),
+                    key=lambda f: f.stem)
+    while oldest:
+        u = disk_usage(store.root)
+        if u.used / u.total <= MAX_DISK_USED:
+            break
+        f = oldest.pop(0)
+        log.warning("volume %.0f%% full: deleting %s", 100 * u.used / u.total, f)
+        f.unlink()
+
+
+_libc: Any = None
+
+
+def trim_memory() -> None:
+    """Hand memory freed by a job back to the OS (glibc only), so a 256 MB machine has room."""
+    global _libc
+    try:
+        _libc = _libc or ctypes.CDLL("libc.so.6")
+        _libc.malloc_trim(0)
+    except (OSError, AttributeError):
+        pass
 
 
 def hourly_history(store: Store, cur: str, hours: int = 48,
@@ -131,12 +173,13 @@ def build_app(settings: Settings, state: State) -> Starlette:
         return Response(json.dumps(body), status_code=200 if ok else 503,
                         media_type="application/json")
 
+    # Gzip: the bundles are JSON, and outbound data from Fly is billed per GB.
     return Starlette(routes=[
         Route("/latest.json", latest),
         Route("/history.json", history),
         Route("/vrp.json", vrp),
         Route("/healthz", health),
-    ])
+    ], middleware=[Middleware(GZipMiddleware, minimum_size=1024)])
 
 
 def serve(settings: Settings) -> None:
@@ -154,6 +197,7 @@ def serve(settings: Settings) -> None:
         for r in await run_once(settings, CURRENCIES):
             if not r.get("error"):
                 state.last_ok[r["currency"]] = datetime.fromisoformat(r["ts"])
+        trim_memory()
 
     async def daily_job() -> None:
         now = datetime.now(UTC)
@@ -175,6 +219,7 @@ def serve(settings: Settings) -> None:
         for c in CURRENCIES:
             await asyncio.to_thread(compact_day, store, c, f"{day}")
         await asyncio.to_thread(prune, store, now)
+        trim_memory()
         log.info("daily report for %s published", day)
 
     async def vrp_job() -> None:
@@ -197,6 +242,7 @@ def serve(settings: Settings) -> None:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(report.model_dump_json())
         tmp.replace(path)
+        trim_memory()
         log.info("vrp written")
 
     async def catch_up() -> None:
