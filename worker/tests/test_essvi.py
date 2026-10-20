@@ -120,3 +120,16 @@ def test_ssvi_as_essvi_is_identical():
     k = np.linspace(-0.8, 0.8, 17)
     for i in range(len(s.T)):
         np.testing.assert_allclose(e.w(k, i), s.w(k, i), rtol=1e-12)
+
+
+def test_offline_evaluation_on_a_real_snapshot(payload):
+    from volsurf.clean import classify
+    from volsurf.evaluate import evaluate_snapshot
+    from volsurf.snapshot import build_snapshot
+
+    p = payload["BTC"]
+    df = build_snapshot("BTC", p["instruments"], p["summaries"], p["server_us"])
+    r = evaluate_snapshot(df[classify(df).isna()])
+    assert set(r) >= {"ssvi_holdout", "essvi_holdout", "ssvi_inside_median", "essvi_inside_median"}
+    assert 0 < r["essvi_holdout"] < 10 and 0 < r["ssvi_holdout"] < 10
+    assert r["essvi_min_g"] >= -1e-9 and r["essvi_min_dw_dT"] >= -1e-12
