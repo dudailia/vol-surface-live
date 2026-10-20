@@ -36,7 +36,8 @@ def base_bundles(payload):
 def scaled(b, ts, theta_scale=1.0):
     """Same surface, re-stamped, with every θ scaled (so ATM vol scales by its root)."""
     x = copy.deepcopy(b)
-    x["ts"] = ts.isoformat()
+    # The worker writes "Z" timestamps (pydantic's JSON mode); keep that form here.
+    x["ts"] = ts.isoformat().replace("+00:00", "Z")
     for e in x["expiries"]:
         e["theta"] *= theta_scale
     for s in x["tenors"].values():
@@ -105,4 +106,6 @@ def test_publish_without_token_mirrors_locally(store, tmp_path):
     assert (pub / "reports" / "2026-10-18.json").exists()
     idx = json.loads((pub / "history" / "index.json").read_text())
     assert [d["date"] for d in idx["days"]["BTC"]] == ["2026-10-18"]
+    assert [d["date"] for d in idx["days"]["ETH"]] == ["2026-10-18"]
+    assert (pub / "history" / "BTC" / "2026-10-18.json").exists()
     assert json.loads((pub / "reports" / "index.json").read_text())["dates"] == ["2026-10-18"]

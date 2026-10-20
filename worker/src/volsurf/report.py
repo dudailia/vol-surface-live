@@ -5,9 +5,11 @@ from __future__ import annotations
 import io
 import json
 import logging
+import os
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
+import httpx
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -252,6 +254,9 @@ def compact_surface(b: dict[str, Any]) -> dict[str, Any]:
 def hourly_raw(store: Store, cur: str, day: str) -> bytes | None:
     """The day's raw quotes thinned to the on-the-hour snapshots, as zstd Parquet."""
     df = store.read_raw_day(cur, day)
+    compacted = store.root / "raw-daily" / cur / f"{day}.parquet"
+    if df.empty and compacted.exists():
+        df = pd.read_parquet(compacted)
     if df.empty:
         return None
     ts = pd.to_datetime(df["ts"], utc=True)
@@ -259,6 +264,19 @@ def hourly_raw(store: Store, cur: str, day: str) -> bytes | None:
     buf = io.BytesIO()
     keep.to_parquet(buf, compression="zstd", index=False)
     return buf.getvalue()
+
+
+def _remote(rel: str) -> dict[str, Any] | None:
+    """A published JSON file from the archive (BLOB_BASE_URL), or None."""
+    base = os.environ.get("BLOB_BASE_URL")
+    if not base:
+        return None
+    try:
+        r = httpx.get(f"{base.rstrip('/')}/{rel}", timeout=10)
+        data: dict[str, Any] | None = r.json() if r.status_code == 200 else None
+        return data
+    except (httpx.HTTPError, ValueError):
+        return None
 
 
 def publish(settings: Settings, report: Report, pub: Publisher | None = None) -> None:
@@ -273,13 +291,16 @@ def publish(settings: Settings, report: Report, pub: Publisher | None = None) ->
     pub.put_json(f"reports/{day}.json", data, max_age=86400)
 
     idx_path = settings.data_dir / "publish" / "history" / "index.json"
+    # A fresh volume has no local copy of the archive's indexes: start from the published
+    # ones so earlier days are never dropped.
     index: dict[str, Any] = (json.loads(idx_path.read_text()) if idx_path.exists()
-                             else {"version": 1, "days": {c: [] for c in CURRENCIES}})
+                             else _remote("history/index.json")
+                             or {"version": 1, "days": {c: [] for c in CURRENCIES}})
     for cur, cr in report.currencies.items():
         end_day = f"{cr.surface_ts:%Y-%m-%d}"
         p = store.bundle_paths(cur, end_day)
-        target = next((x for x in p if store.read_bundle(x)["ts"] == cr.surface_ts.isoformat()),
-                      None)
+        # Compare instants, not strings: bundles write "Z", parsed reports "+00:00".
+        target = next((x for x in p if _ts(store.read_bundle(x)) == cr.surface_ts), None)
         if target is None:
             continue
         b = store.read_bundle(target)
@@ -293,7 +314,9 @@ def publish(settings: Settings, report: Report, pub: Publisher | None = None) ->
                     max_age=86400)
     pub.put_json("history/index.json", index, max_age=300)
 
-    reports = sorted({p.stem for p in (settings.data_dir / "reports").glob("*.json")})
+    remote = _remote("reports/index.json") or {}
+    reports = sorted({p.stem for p in (settings.data_dir / "reports").glob("*.json")}
+                     | set(remote.get("dates", [])))
     pub.put_json("reports/index.json", {"version": 1, "dates": reports}, max_age=300)
 
 
