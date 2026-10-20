@@ -6,7 +6,9 @@ import { REPO_PUBLIC, REPO_URL } from '@/lib/site'
 export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bundle>> }) {
   const b = bundles.BTC ?? bundles.ETH
   if (!b) return null
-  const order = Object.keys(b.cleaning.rules)
+  // drop_counts lists the reasons in the order the rules run (selection first, then quality).
+  const order = Object.keys(b.cleaning.dropped).filter((r) => r in b.cleaning.rules)
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
   return (
     <section aria-labelledby="methods-title" className="page mt-24 sm:mt-32">
       <div className="grid-rail">
@@ -49,7 +51,7 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
               <tbody>
                 {order.map((r) => (
                   <tr key={r} className="border-b border-rule/60">
-                    <td className="py-2 pr-4">{b.cleaning.rules[r]}</td>
+                    <td className="py-2 pr-4">{cap(b.cleaning.rules[r])}</td>
                     {(['BTC', 'ETH'] as const).map((c) =>
                       bundles[c] ? (
                         <td key={c} className="num py-2 pl-4 text-right">
