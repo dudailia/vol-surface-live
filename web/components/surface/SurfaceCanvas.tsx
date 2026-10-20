@@ -499,6 +499,33 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
     if (live.current.labels.current) {
       labelObserver.observe(live.current.labels.current, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-anchor'] })
     }
+    // Is the anchor behind the surface? March from it towards the camera and compare with the
+    // height field (the grid is regular in x and z), bilinearly interpolated.
+    const toEye = new THREE.Vector3()
+    function heightAt(x: number, z: number): number | null {
+      const x0 = positions[0]
+      const x1 = positions[(NU - 1) * 3]
+      const z0 = positions[2]
+      const z1 = positions[(NT - 1) * NU * 3 + 2]
+      const fi = ((x - x0) / (x1 - x0)) * (NU - 1)
+      const fj = ((z - z0) / (z1 - z0)) * (NT - 1)
+      if (!(fi >= 0 && fi <= NU - 1 && fj >= 0 && fj <= NT - 1)) return null
+      const i = Math.min(Math.floor(fi), NU - 2)
+      const j = Math.min(Math.floor(fj), NT - 2)
+      const di = fi - i
+      const dj = fj - j
+      const y = (ii: number, jj: number) => positions[((j + jj) * NU + i + ii) * 3 + 1]
+      return (y(0, 0) * (1 - di) + y(1, 0) * di) * (1 - dj) + (y(0, 1) * (1 - di) + y(1, 1) * di) * dj
+    }
+    function occluded(p: THREE.Vector3): boolean {
+      toEye.copy(camera.position).sub(p)
+      for (let s = 1; s <= 40; s++) {
+        const t = s / 40
+        const hy = heightAt(p.x + toEye.x * t, p.z + toEye.z * t)
+        if (hy != null && p.y + toEye.y * t < hy - 0.01) return true
+      }
+      return false
+    }
     function placeLabels(w: number, h: number) {
       for (const a of anchors) {
         tmp.copy(a.p).project(camera)
@@ -510,7 +537,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
         a.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`
         const l = align === 'right' ? x - a.w : align === 'center' ? x - a.w / 2 : x
         const t = y - a.h / 2
-        const hide = a.w > 0 && avoidBoxes.some((b) => l < b.r && l + a.w > b.l && t < b.b && t + a.h > b.t)
+        const hide = a.w > 0 && (avoidBoxes.some((b) => l < b.r && l + a.w > b.l && t < b.b && t + a.h > b.t) || occluded(a.p))
         if (hide !== a.hidden) {
           a.hidden = hide
           a.el.style.opacity = hide ? '0' : ''

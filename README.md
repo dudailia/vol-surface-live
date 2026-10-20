@@ -4,6 +4,16 @@ A live implied-volatility surface for Bitcoin and Ether options, built from Deri
 
 Live page: https://vol.iliaduda.com
 
+![The live page at 1440 pixels wide: the bitcoin surface, the quotes it was fitted to, and quotes that break static arbitrage ringed in amber](media/hero.png)
+
+## Results so far
+
+Each figure comes from an archived file named below.
+
+- **Extended SSVI fits quotes it has not seen better than SSVI.** Over the 129 snapshots archived on 19 October 2026, with every fifth quote held out of the fit, eSSVI's median error on the held-out quotes was 1.20 vol points against SSVI's 1.51 for bitcoin, and 1.42 against 1.82 for ether. It was lower in every snapshot (`paper/data/model-comparison-2026-10-19.json`).
+- **Raw quotes fail static-arbitrage checks at mid prices in every snapshot, and almost never at prices you could trade.** On 19 October bitcoin had 575 mid-price failures over 62 snapshots and ether 195 over 61, nearly all butterflies. None of bitcoin's were tradeable at quoted prices; three ether put butterflies were, by at most 0.18 USD per option before fees (the daily report for 19 October, listed at https://vol.iliaduda.com/reports).
+- **Implied volatility usually ran above what the index then did.** From 21 October 2025 to 20 September 2026, DVOL was above the realized volatility of the following 30 days on 89% of 335 days for bitcoin, by a median of 11.9 points, and on 90% for ether, by 17.7 (`paper/data/vrp-2026-10-20T0223Z.json`).
+
 ## Why
 
 An implied-volatility surface is the standard way to read an options market: one picture of how much movement is priced, at which strikes and for which dates. Building one from real quotes means dealing with stale and crossed markets, solving implied vols correctly, fitting a model that cannot produce arbitrage, and being clear about where the model does not fit. This project does all of that in the open, with tests, on data anyone can check.
