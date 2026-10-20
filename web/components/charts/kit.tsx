@@ -5,7 +5,7 @@
  * recessive (rule and graphite); the measured value is indigo; the model is ink.
  */
 
-import { motion, useReducedMotion } from 'motion/react'
+import { m, useReducedMotion } from 'motion/react'
 import type { ScaleLinear } from 'd3-scale'
 
 export const COLORS = {
@@ -105,7 +105,7 @@ export function DrawPath({
 }) {
   const reduce = useReducedMotion()
   return (
-    <motion.path
+    <m.path
       d={d}
       fill="none"
       stroke={stroke}

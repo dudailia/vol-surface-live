@@ -5,10 +5,15 @@ import { History } from '@/components/sections/History'
 import { Methods } from '@/components/sections/Methods'
 import { WhatMoved } from '@/components/sections/WhatMoved'
 import { Hero } from '@/components/surface/Hero'
-import { allSurfaces } from '@/lib/bundle'
+import { allSurfaces, slimForClient } from '@/lib/bundle'
 import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime } from '@/lib/data'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
+
+const slim = (l: Awaited<ReturnType<typeof getLatestWithTime>>['bundles']) => ({
+  ...(l.BTC ? { BTC: slimForClient(l.BTC) } : {}),
+  ...(l.ETH ? { ETH: slimForClient(l.ETH) } : {}),
+})
 
 export default async function Page() {
   const [{ bundles: latest, fetchedAt }, report, index, hourly] = await Promise.all([
@@ -23,7 +28,7 @@ export default async function Page() {
   // The next 00:00 UTC after the latest snapshot, for "the first report is written at ...".
   const next = ts ? new Date(Date.UTC(new Date(ts).getUTCFullYear(), new Date(ts).getUTCMonth(), new Date(ts).getUTCDate() + 1)) : null
   return (
-    <LiveProvider initial={latest} frame={frame} fetchedAt={fetchedAt}>
+    <LiveProvider initial={slim(latest)} frame={frame} fetchedAt={fetchedAt}>
       <main>
         <Hero />
         <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />

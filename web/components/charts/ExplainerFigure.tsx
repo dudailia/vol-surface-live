@@ -6,7 +6,7 @@
  * on it, then what the fit says (skew, term structure, local vol).
  */
 
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, m, useReducedMotion } from 'motion/react'
 import { scaleLinear } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { useMemo, useState } from 'react'
@@ -52,7 +52,7 @@ export function ExplainerFigure({ bundle, step, model }: Props) {
   return (
     <div ref={ref} className="relative w-full" style={{ height: height + caption }}>
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div
+        <m.div
           key={step}
           className="absolute inset-0"
           initial={reduce ? false : { opacity: 0, filter: 'blur(2px)' }}
@@ -67,7 +67,7 @@ export function ExplainerFigure({ bundle, step, model }: Props) {
           {step === 5 && <SkewChart bundle={bundle} model={model} w={width} h={height} />}
           {step === 6 && <TermChart bundle={bundle} model={model} w={width} h={height} />}
           {step === 7 && <LocalVolChart bundle={bundle} model={model} w={width} h={height} />}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </div>
   )

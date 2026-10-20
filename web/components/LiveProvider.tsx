@@ -6,8 +6,9 @@
  */
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { bundleSchema, type Bundle } from '@/lib/generated/bundle'
-import { modelFor, type Model } from '@/lib/bundle'
+import { LazyMotion, domAnimation } from 'motion/react'
+import type { Bundle } from '@/lib/generated/bundle'
+import { expandForClient, modelFor, type Model } from '@/lib/bundle'
 import type { Frame } from '@/lib/geometry'
 import type { Surface } from '@/lib/ssvi'
 
@@ -53,7 +54,11 @@ export function LiveProvider({
   fetchedAt: number
   children: React.ReactNode
 }) {
-  const [bundles, setBundles] = useState(initial)
+  const [bundles, setBundles] = useState(() => {
+    const out: Partial<Record<Currency, Bundle>> = {}
+    for (const c of ['BTC', 'ETH'] as const) if (initial[c]) out[c] = expandForClient(initial[c]!)
+    return out
+  })
   const [currency, setCurrency] = useState<Currency>('BTC')
   const [history, setHistory] = useState<HistoryPick | null>(null)
   const [modelChoice, setModelChoice] = useState<Model | null>(null)
@@ -70,9 +75,11 @@ export function LiveProvider({
         if (!res.ok) return
         const raw = (await res.json()) as Record<string, unknown>
         const next: Partial<Record<Currency, Bundle>> = {}
+        // Our own API validated these against the schema on the server; a shape check is
+        // enough here and keeps zod out of the browser bundle.
         for (const c of ['BTC', 'ETH'] as const) {
-          const r = bundleSchema.safeParse(raw[c])
-          if (r.success) next[c] = r.data
+          const b = raw[c] as Bundle | undefined
+          if (b && typeof b.ts === 'string' && Array.isArray(b.expiries) && b.expiries.length) next[c] = expandForClient(b)
         }
         if (stop) return
         // Keep object identity when nothing changed, so nothing re-renders or morphs.
@@ -101,7 +108,14 @@ export function LiveProvider({
     () => ({ currency, setCurrency, bundles, bundle, frame, history, setHistory, stale, model, modelChoice, setModelChoice }),
     [currency, bundles, bundle, frame, history, stale, model, modelChoice],
   )
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+  return (
+    <Ctx.Provider value={value}>
+      {/* Motion's DOM animation features only (no layout or drag), loaded once for the page. */}
+      <LazyMotion features={domAnimation} strict>
+        {children}
+      </LazyMotion>
+    </Ctx.Provider>
+  )
 }
 
 export function useLive(): Live {

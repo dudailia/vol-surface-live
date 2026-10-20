@@ -115,3 +115,41 @@ export function allSurfaces(latest: Partial<Record<'BTC' | 'ETH', Bundle>>): Sur
     .filter((b): b is Bundle => b != null)
     .flatMap((b) => (b.essvi ? [surfaceOf(b, 'ssvi'), surfaceOf(b, 'essvi')] : [surfaceOf(b, 'ssvi')]))
 }
+
+/**
+ * What the browser needs of a bundle. Instrument names (rebuilt from currency, expiry,
+ * strike and type), mid IVs (the mean of bid and ask), open interest, the violation list and
+ * the rule texts are left out, and local vol is rounded to 0.1 vol point: about 40% fewer
+ * bytes to send, parse and hydrate. `expandForClient` restores the shape, so components
+ * read a full bundle either way.
+ */
+export function slimForClient(b: Bundle): Bundle {
+  const round1 = (lv: Bundle['local_vol']) => ({ ...lv, vol: lv.vol.map((r) => r.map((v) => (v == null ? null : Math.round(v * 10) / 10))) })
+  return {
+    ...b,
+    expiries: b.expiries.map((e) => ({ ...e, quotes: { ...e.quotes, instrument: [], mid_iv: [], oi: [] } })),
+    arbitrage: { ...b.arbitrage, violations: [] },
+    cleaning: { ...b.cleaning, rules: {} },
+    local_vol: round1(b.local_vol),
+    essvi: b.essvi ? { ...b.essvi, local_vol: round1(b.essvi.local_vol) } : b.essvi,
+  }
+}
+
+export function expandForClient(b: Bundle): Bundle {
+  return {
+    ...b,
+    expiries: b.expiries.map((e) => {
+      const q = e.quotes
+      if (q.instrument.length === q.k.length) return e
+      return {
+        ...e,
+        quotes: {
+          ...q,
+          instrument: q.strike.map((s, i) => `${b.currency}-${e.code}-${s}-${q.is_call[i] ? 'C' : 'P'}`),
+          mid_iv: q.bid_iv.map((v, i) => Math.round(((v + q.ask_iv[i]) / 2) * 1e5) / 1e5),
+          oi: q.oi.length ? q.oi : q.k.map(() => 0),
+        },
+      }
+    }),
+  }
+}
