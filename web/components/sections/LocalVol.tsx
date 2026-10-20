@@ -8,6 +8,7 @@
 import { scaleLinear } from 'd3-scale'
 import { useMemo, useState } from 'react'
 import { DataTable, XAxis, YAxis } from '@/components/charts/kit'
+import { Deferred } from '@/components/charts/Deferred'
 import { useWidth } from '@/components/charts/useMeasure'
 import { useLive } from '@/components/LiveProvider'
 import { localVolOf, MODEL_NAME } from '@/lib/bundle'
@@ -71,6 +72,7 @@ export function LocalVol() {
           </p>
         </div>
         <figure ref={ref} className="wide relative mt-6" aria-labelledby="lv-cap" onPointerLeave={() => setHover(null)}>
+          <Deferred height={h}>
           <svg width={w} height={h} aria-hidden="true">
             {lv.vol.map((row, j) =>
               row.map((v, i) => {
@@ -120,6 +122,7 @@ export function LocalVol() {
               {fixed(stats.lo, 0)}%
             </text>
           </svg>
+          </Deferred>
           {hover && hv != null && (
             <div className="pointer-events-none absolute left-16 top-2 rounded-[4px] border border-rule bg-raised px-3 py-2 text-meta">
               <span className="num text-ink">

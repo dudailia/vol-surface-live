@@ -156,7 +156,7 @@ test.describe('front page', () => {
     await expect(sec).toContainText(/it runs from [\d.]+% to [\d.]+%/)
     await expect(sec).toContainText(/strikes from \d+% to \d+% of the forward/)
     await expect(sec).toContainText(/\d+ of \d+ cells are blank/)
-    expect(await sec.locator('svg rect').count()).toBeGreaterThan(100)
+    await expect.poll(() => sec.locator('svg rect').count()).toBeGreaterThan(100)
   })
 
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {

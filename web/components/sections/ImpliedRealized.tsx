@@ -10,6 +10,7 @@ import { scaleLinear } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { useMemo, useState } from 'react'
 import { COLORS, DataTable, DrawPath, YAxis, niceTicks } from '@/components/charts/kit'
+import { Deferred } from '@/components/charts/Deferred'
 import { useWidth } from '@/components/charts/useMeasure'
 import { useLive, type Currency } from '@/components/LiveProvider'
 import { fixed, utcDate } from '@/lib/format'
@@ -61,7 +62,10 @@ export function ImpliedRealized({ views }: { views: Partial<Record<Currency, Vrp
         </div>
         {v && v.latest && (
           <div className="wide mt-6">
-            <VrpChart v={v} />
+            <Deferred reserve="min-h-[440px] sm:min-h-[510px]">
+              <VrpChart v={v} />
+            </Deferred>
+            <VrpTable v={v} />
             <p className="mt-3 max-w-[var(--measure)] text-note text-graphite">
               Realized volatility is computed here from Deribit&rsquo;s index price every six hours (annualized root mean square
               of log returns over 30 days). Deribit&rsquo;s own published figure, dashed, covers the last 16 days; its window is not
@@ -171,14 +175,19 @@ function VrpChart({ v }: { v: VrpView }) {
         <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block h-0.5 w-5 bg-ink" />Realized, past 30 days</span>
         <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block w-5 border-t border-dashed border-graphite" />Deribit&rsquo;s historical volatility</span>
       </div>
-      <DataTable
-        caption={`DVOL and realized volatility for ${v.currency}, last 30 days`}
-        head={['Date', 'DVOL', 'Realized 30-day', 'Gap to the following 30 days']}
-        rows={v.days.slice(-30).map((d, j) => {
-          const i = v.days.length - 30 + j
-          return [d, v.dvol[i] ?? 'n/a', v.realized[i] ?? 'n/a', v.gapForward[i] ?? 'not yet known']
-        })}
-      />
     </figure>
+  )
+}
+
+function VrpTable({ v }: { v: VrpView }) {
+  return (
+    <DataTable
+      caption={`DVOL and realized volatility for ${v.currency}, last 30 days`}
+      head={['Date', 'DVOL', 'Realized 30-day', 'Gap to the following 30 days']}
+      rows={v.days.slice(-30).map((d, j) => {
+        const i = v.days.length - 30 + j
+        return [d, v.dvol[i] ?? 'n/a', v.realized[i] ?? 'n/a', v.gapForward[i] ?? 'not yet known']
+      })}
+    />
   )
 }

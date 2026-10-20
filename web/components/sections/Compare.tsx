@@ -10,6 +10,7 @@ import { scaleLinear } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { useState } from 'react'
 import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks } from '@/components/charts/kit'
+import { Deferred } from '@/components/charts/Deferred'
 import { useWidth } from '@/components/charts/useMeasure'
 import { useLive } from '@/components/LiveProvider'
 import { fitsOf, MODEL_NAME, tenorsOf } from '@/lib/bundle'
@@ -51,10 +52,14 @@ export function Compare() {
             </p>
           )}
         </div>
-        <div className="wide mt-6 grid grid-cols-1 gap-8 md:grid-cols-3">
-          <Panel data={data} field="atm" title="At-the-money vol, %" />
-          <Panel data={data} field="rr25" title="25-delta risk reversal, vol points" zero />
-          <Panel data={data} field="bf25" title="25-delta butterfly, vol points" zero />
+        <div className="wide mt-6">
+          <Deferred reserve="min-h-[874px] md:min-h-[270px]">
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+              <Panel data={data} field="atm" title="At-the-money vol, %" />
+              <Panel data={data} field="rr25" title="25-delta risk reversal, vol points" zero />
+              <Panel data={data} field="bf25" title="25-delta butterfly, vol points" zero />
+            </div>
+          </Deferred>
         </div>
         <div className="wide mt-3 flex flex-wrap gap-x-6 gap-y-1 text-note text-graphite">
           {(['BTC', 'ETH'] as const).map((c) => (
