@@ -135,6 +135,12 @@
           "title": "Index Price",
           "type": "number"
         },
+        "model": {
+          "default": "ssvi",
+          "description": "surface model behind the tenor stats, moves and fit numbers",
+          "title": "Model",
+          "type": "string"
+        },
         "previous_ts": {
           "anyOf": [
             {

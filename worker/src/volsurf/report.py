@@ -18,8 +18,9 @@ from .blob import Publisher
 from .bundle import ViolationOut
 from .clean import QUALITY_REASONS, SELECTION_REASONS
 from .config import CURRENCIES, Settings
-from .derived import TENORS_DAYS, forward_delta_k, theta_interpolator
-from .ssvi import SSVIParams, total_variance
+from .derived import TENORS_DAYS, delta_k, essvi_slice, ssvi_slice, theta_interpolator
+from .essvi import interp_rho_psi, theta_curve
+from .ssvi import SSVIParams
 from .store import Store
 
 log = logging.getLogger(__name__)
@@ -81,6 +82,8 @@ class DataDay(BaseModel):
 
 class CurrencyReport(BaseModel):
     currency: str
+    model: str = Field(default="ssvi", description="surface model behind the tenor stats, "
+                                                    "moves and fit numbers")
     surface_ts: datetime
     previous_ts: datetime | None
     index_price: float
@@ -110,20 +113,40 @@ def surface(b: dict[str, Any]) -> tuple[np.ndarray, np.ndarray, SSVIParams]:
     return T, th, SSVIParams(s["rho"], s["eta"], s["gamma"])
 
 
-def grid_vols(b: dict[str, Any]) -> dict[tuple[str, str], float]:
-    """Vol (points) at each fixed tenor x delta point covered by the bundle's expiries."""
+def report_model(start: dict[str, Any] | None, end: dict[str, Any]) -> str:
+    """eSSVI when both ends of the day carry it, so changes compare like with like."""
+    return "essvi" if end.get("essvi") and (start is None or start.get("essvi")) else "ssvi"
+
+
+def tenors_of(b: dict[str, Any], model: str) -> dict[str, Any]:
+    return dict(b["essvi"]["tenors"] if model == "essvi" else b["tenors"])
+
+
+def slice_fn(b: dict[str, Any], model: str, t: float) -> tuple[float, Any]:
+    """θ at T and the slice w(k) of the chosen model."""
     T, th, p = surface(b)
-    interp = theta_interpolator(T, th)
+    if model == "essvi":
+        e = b["essvi"]
+        theta_e = np.array(e["theta"])
+        theta = float(theta_curve(T, theta_e)(t))
+        rho, psi = interp_rho_psi(theta_e, np.array(e["rho"]), np.array(e["psi"]), theta)
+        return theta, essvi_slice(theta, rho, psi)
+    theta = float(theta_interpolator(T, th)(t))
+    return theta, ssvi_slice(theta, p)
+
+
+def grid_vols(b: dict[str, Any], model: str = "ssvi") -> dict[tuple[str, str], float]:
+    """Vol (points) at each fixed tenor x delta point covered by the bundle's expiries."""
+    T, _, _ = surface(b)
     out: dict[tuple[str, str], float] = {}
     for d in TENORS_DAYS:
         t = d / 365.0
         if t < T[0] or t > T[-1]:
             continue
-        theta = float(interp(t))
+        theta, w = slice_fn(b, model, t)
         for name, delta in GRID_POINTS:
-            k = 0.0 if delta is None else forward_delta_k(theta, p, delta)
-            out[(f"{d}d", name)] = float(np.sqrt(
-                total_variance(k, theta, p.rho, p.eta, p.gamma) / t)) * 100
+            k = 0.0 if delta is None else delta_k(w, theta, delta)
+            out[(f"{d}d", name)] = float(np.sqrt(w(k) / t)) * 100
     return out
 
 
@@ -149,9 +172,10 @@ def currency_report(
     start: dict[str, Any] | None,
 ) -> CurrencyReport:
     """``day``: every bundle in the period; ``end``/``start``: surfaces at its two ends."""
+    model = report_model(start, end)
     rows = []
-    for tenor, s in end["tenors"].items():
-        prev = start["tenors"].get(tenor) if start else None
+    for tenor, s in tenors_of(end, model).items():
+        prev = tenors_of(start, model).get(tenor) if start else None
         rows.append(TenorRow(
             tenor=tenor,
             atm=round(s["atm"], 4), atm_chg=_chg(s["atm"], prev and prev["atm"]),
@@ -161,7 +185,7 @@ def currency_report(
 
     moves: list[Move] = []
     if start is not None:
-        g1, g0 = grid_vols(end), grid_vols(start)
+        g1, g0 = grid_vols(end, model), grid_vols(start, model)
         for key in g1.keys() & g0.keys():
             moves.append(Move(tenor=key[0], point=key[1], vol=round(g1[key], 4),
                               change=round(g1[key] - g0[key], 4)))
@@ -182,9 +206,13 @@ def currency_report(
         examples += [ArbExample(**v, ts=_ts(b)) for v in b["arbitrage"]["violations"]]
     examples.sort(key=lambda v: (v.level != "tradeable", -v.size_usd))
 
-    rmse = [(e["rmse_vol_pts"], e["code"]) for e in end["expiries"]]
-    all_rmse = [e["rmse_vol_pts"] for b in day for e in b["expiries"]]
-    inside = [e["inside_spread"] for b in day for e in b["expiries"]
+    def fitted(b: dict[str, Any]) -> list[dict[str, Any]]:
+        return list(b["essvi"]["expiries"] if model == "essvi" and b.get("essvi")
+                    else b["expiries"])
+
+    rmse = [(e["rmse_vol_pts"], e["code"]) for e in fitted(end)]
+    all_rmse = [e["rmse_vol_pts"] for b in day for e in fitted(b)]
+    inside = [e["inside_spread"] for b in day for e in fitted(b)
               if e["inside_spread"] is not None]
     worst = max(rmse)
     dropped = {r: sum(b["cleaning"]["dropped"].get(r, 0) for b in day)
@@ -193,6 +221,7 @@ def currency_report(
 
     return CurrencyReport(
         currency=currency,
+        model=model,
         surface_ts=_ts(end),
         previous_ts=_ts(start) if start else None,
         index_price=end["index_price"],
@@ -248,6 +277,9 @@ def compact_surface(b: dict[str, Any]) -> dict[str, Any]:
         "ssvi": {k: b["ssvi"][k] for k in ("rho", "eta", "gamma")},
         "expiries": [{"code": e["code"], "T": e["T"], "theta": e["theta"],
                       "atm": e["stats"]["atm"]} for e in b["expiries"]],
+        **({"essvi": {k: b["essvi"][k] for k in ("theta", "rho", "psi")},
+            "selected": b["selection"]["selected"]} if b.get("essvi") and b.get("selection")
+           else {}),
     }
 
 

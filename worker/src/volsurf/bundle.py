@@ -12,10 +12,18 @@ from pydantic import BaseModel, Field
 from .arbitrage import Violation, summarise
 from .clean import reason_text
 from .config import CleanConfig
-from .derived import at_tenors, local_vol_grid, per_expiry
+from .derived import (
+    at_tenors,
+    essvi_at_tenors,
+    essvi_local_vol_grid,
+    essvi_per_expiry,
+    local_vol_grid,
+    per_expiry,
+)
+from .essvi import ESSVIFit
 from .ssvi import SSVIFit
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class QuoteColumns(BaseModel):
@@ -88,6 +96,43 @@ class LocalVol(BaseModel):
                                                       "standard deviations")
 
 
+class ModelExpiry(BaseModel):
+    code: str
+    stats: SmileStats
+    rmse_vol_pts: float
+    inside_spread: float | None
+
+
+class ESSVIBlock(BaseModel):
+    """Extended SSVI: one ρ and ψ = θφ per expiry (Hendriks and Martini, 2019)."""
+
+    theta: list[float]
+    rho: list[float]
+    psi: list[float]
+    expiries: list[ModelExpiry]
+    tenors: dict[str, SmileStats]
+    local_vol: LocalVol
+    min_g: float
+    min_dw_dT: float
+    success: bool
+    message: str
+
+
+class Selection(BaseModel):
+    """Which model the page shows by default, and the evidence."""
+
+    selected: Literal["ssvi", "essvi"]
+    metric: str = Field(description="median pooled RMSE on held-out quotes (every 5th "
+                                    "quote of each expiry), vol points, over recent "
+                                    "snapshots")
+    window: int
+    n: int = Field(description="snapshots in the median")
+    ssvi: float
+    essvi: float
+    last_ssvi: float
+    last_essvi: float
+
+
 class Cleaning(BaseModel):
     n_raw: int
     n_kept: int
@@ -123,6 +168,8 @@ class Bundle(BaseModel):
     local_vol: LocalVol
     cleaning: Cleaning
     iv_check: IVCheck
+    essvi: ESSVIBlock | None = None
+    selection: Selection | None = None
 
 
 def _r(x: object, nd: int) -> list[float]:
@@ -203,4 +250,19 @@ def make_bundle(
         cleaning=Cleaning(n_raw=len(df), n_kept=len(kept), dropped=dropped,
                           rules=reason_text(clean_cfg), skipped_expiries=skipped),
         iv_check=_iv_check(iv_gaps),
+    )
+
+
+def essvi_block(fit: ESSVIFit, codes: list[str]) -> ESSVIBlock:
+    stats = essvi_per_expiry(fit)
+    return ESSVIBlock(
+        theta=_r(fit.theta, 8), rho=_r(fit.rho, 6), psi=_r(fit.psi, 6),
+        expiries=[ModelExpiry(
+            code=c, stats=_stats(stats[i]), rmse_vol_pts=round(float(fit.rmse_vol_pts[i]), 4),
+            inside_spread=(None if np.isnan(fit.inside_spread[i])
+                           else round(float(fit.inside_spread[i]), 4)))
+            for i, c in enumerate(codes)],
+        tenors={k: _stats(v) for k, v in essvi_at_tenors(fit).items()},
+        local_vol=LocalVol(**essvi_local_vol_grid(fit)),
+        min_g=fit.min_g, min_dw_dT=fit.min_dw_dT, success=fit.success, message=fit.message,
     )

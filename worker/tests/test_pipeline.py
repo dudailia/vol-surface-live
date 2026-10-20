@@ -41,6 +41,13 @@ def test_bundle_is_consistent(bundle):
         assert all(lo <= hi for lo, hi in zip(q.bid_iv, q.ask_iv, strict=True))
         assert 5 < e.stats.atm < 300
     assert b.iv_check.n == 2 and b.iv_check.max_gap_pts == 0.004
+    # eSSVI alongside SSVI, with the evidence for the default.
+    e = b.essvi
+    assert e is not None and len(e.expiries) == len(b.expiries)
+    assert e.min_g >= -1e-9 and e.min_dw_dT >= -1e-12
+    assert b.selection is not None and b.selection.selected in ("ssvi", "essvi")
+    assert b.selection.selected == ("essvi" if b.selection.essvi < b.selection.ssvi else "ssvi")
+    assert {"7d", "30d"} <= set(e.tenors)
 
 
 def test_bundle_round_trips_and_matches_schema(bundle):

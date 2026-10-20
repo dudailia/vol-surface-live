@@ -70,6 +70,79 @@
       "title": "Cleaning",
       "type": "object"
     },
+    "ESSVIBlock": {
+      "description": "Extended SSVI: one \u03c1 and \u03c8 = \u03b8\u03c6 per expiry (Hendriks and Martini, 2019).",
+      "properties": {
+        "expiries": {
+          "items": {
+            "$ref": "#/$defs/ModelExpiry"
+          },
+          "title": "Expiries",
+          "type": "array"
+        },
+        "local_vol": {
+          "$ref": "#/$defs/LocalVol"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "min_dw_dT": {
+          "title": "Min Dw Dt",
+          "type": "number"
+        },
+        "min_g": {
+          "title": "Min G",
+          "type": "number"
+        },
+        "psi": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Psi",
+          "type": "array"
+        },
+        "rho": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Rho",
+          "type": "array"
+        },
+        "success": {
+          "title": "Success",
+          "type": "boolean"
+        },
+        "tenors": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SmileStats"
+          },
+          "title": "Tenors",
+          "type": "object"
+        },
+        "theta": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Theta",
+          "type": "array"
+        }
+      },
+      "required": [
+        "theta",
+        "rho",
+        "psi",
+        "expiries",
+        "tenors",
+        "local_vol",
+        "min_g",
+        "min_dw_dT",
+        "success",
+        "message"
+      ],
+      "title": "ESSVIBlock",
+      "type": "object"
+    },
     "Expiry": {
       "properties": {
         "F": {
@@ -224,6 +297,40 @@
       "title": "LocalVol",
       "type": "object"
     },
+    "ModelExpiry": {
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "inside_spread": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inside Spread"
+        },
+        "rmse_vol_pts": {
+          "title": "Rmse Vol Pts",
+          "type": "number"
+        },
+        "stats": {
+          "$ref": "#/$defs/SmileStats"
+        }
+      },
+      "required": [
+        "code",
+        "stats",
+        "rmse_vol_pts",
+        "inside_spread"
+      ],
+      "title": "ModelExpiry",
+      "type": "object"
+    },
     "QuoteColumns": {
       "description": "Cleaned quotes used in the fit, column-wise to keep the JSON small.",
       "properties": {
@@ -359,6 +466,61 @@
       "title": "SSVIBlock",
       "type": "object"
     },
+    "Selection": {
+      "description": "Which model the page shows by default, and the evidence.",
+      "properties": {
+        "essvi": {
+          "title": "Essvi",
+          "type": "number"
+        },
+        "last_essvi": {
+          "title": "Last Essvi",
+          "type": "number"
+        },
+        "last_ssvi": {
+          "title": "Last Ssvi",
+          "type": "number"
+        },
+        "metric": {
+          "description": "median pooled RMSE on held-out quotes (every 5th quote of each expiry), vol points, over recent snapshots",
+          "title": "Metric",
+          "type": "string"
+        },
+        "n": {
+          "description": "snapshots in the median",
+          "title": "N",
+          "type": "integer"
+        },
+        "selected": {
+          "enum": [
+            "ssvi",
+            "essvi"
+          ],
+          "title": "Selected",
+          "type": "string"
+        },
+        "ssvi": {
+          "title": "Ssvi",
+          "type": "number"
+        },
+        "window": {
+          "title": "Window",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "selected",
+        "metric",
+        "window",
+        "n",
+        "ssvi",
+        "essvi",
+        "last_ssvi",
+        "last_essvi"
+      ],
+      "title": "Selection",
+      "type": "object"
+    },
     "SmileStats": {
       "properties": {
         "atm": {
@@ -461,6 +623,17 @@
       "title": "Currency",
       "type": "string"
     },
+    "essvi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ESSVIBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "expiries": {
       "items": {
         "$ref": "#/$defs/Expiry"
@@ -477,6 +650,17 @@
     },
     "local_vol": {
       "$ref": "#/$defs/LocalVol"
+    },
+    "selection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Selection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "source": {
       "default": "Deribit public API (get_book_summary_by_currency, ticker)",
@@ -499,7 +683,7 @@
       "type": "string"
     },
     "version": {
-      "default": 1,
+      "default": 2,
       "title": "Version",
       "type": "integer"
     }

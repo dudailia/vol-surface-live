@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
 
@@ -39,3 +41,30 @@ def build_slices(kept: pd.DataFrame) -> tuple[list[SliceData], list[str], list[s
         codes.append(str(code))
     order = np.argsort([s.T for s in slices])
     return [slices[i] for i in order], [codes[i] for i in order], skipped
+
+
+def split_holdout(slices: list[SliceData], every: int = 5, offset: int = 2,
+                  ) -> tuple[list[SliceData], list[tuple[int, np.ndarray, np.ndarray]]]:
+    """Hold out every ``every``-th quote of each slice (by strike order) for model choice.
+
+    Returns the training slices and, per slice, the held-out (k, mid IV).
+    """
+    train: list[SliceData] = []
+    test: list[tuple[int, np.ndarray, np.ndarray]] = []
+    for i, s in enumerate(slices):
+        mask = (np.arange(len(s.k)) % every) == offset
+        keep = ~mask
+        train.append(SliceData(
+            T=s.T, k=s.k[keep], iv=s.iv[keep], weight=s.weight[keep],
+            bid_iv=None if s.bid_iv is None else s.bid_iv[keep],
+            ask_iv=None if s.ask_iv is None else s.ask_iv[keep]))
+        test.append((i, s.k[mask], s.iv[mask]))
+    return train, test
+
+
+def holdout_rmse(iv: Callable[[np.ndarray, int], np.ndarray],
+                 test: list[tuple[int, np.ndarray, np.ndarray]]) -> float:
+    """Pooled RMSE in vol points of a fitted model on the held-out quotes."""
+    errs = [iv(k, i) - mid for i, k, mid in test if len(k)]
+    e = np.concatenate(errs) if errs else np.array([np.nan])
+    return float(np.sqrt(np.mean(e * e)) * 100.0)

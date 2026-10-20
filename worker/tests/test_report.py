@@ -42,6 +42,13 @@ def scaled(b, ts, theta_scale=1.0):
         e["theta"] *= theta_scale
     for s in x["tenors"].values():
         s["atm"] *= np.sqrt(theta_scale)
+    if x.get("essvi"):
+        # Scaling θ and ψ together scales every eSSVI slice's w(k) by the same factor.
+        e = x["essvi"]
+        e["theta"] = [t * theta_scale for t in e["theta"]]
+        e["psi"] = [p * theta_scale for p in e["psi"]]
+        for s in e["tenors"].values():
+            s["atm"] *= np.sqrt(theta_scale)
     return x
 
 
@@ -65,7 +72,8 @@ def test_report_changes_have_right_sign_and_units(store, base_bundles):
         assert cr.previous_ts == START
         assert cr.surface_ts == START + timedelta(days=1)
         assert cr.data.snapshots_received == 4
-        base = base_bundles[cur]["tenors"]
+        assert cr.model == "essvi"
+        base = base_bundles[cur]["essvi"]["tenors"]
         for row in cr.tenors:
             atm0 = base[row.tenor]["atm"]
             assert row.atm_chg == pytest.approx(atm0 * (np.sqrt(1.1) - 1), abs=1e-3)
