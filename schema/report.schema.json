@@ -168,6 +168,17 @@
           },
           "title": "Tenors",
           "type": "array"
+        },
+        "vrp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VrpAtReport"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -366,6 +377,49 @@
         "bf25_chg"
       ],
       "title": "TenorRow",
+      "type": "object"
+    },
+    "VrpAtReport": {
+      "description": "Implied against realized at the report's end (00:00 UTC), from the worker's vrp.json.",
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "dvol": {
+          "title": "Dvol",
+          "type": "number"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Gap"
+        },
+        "realized_30d": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Realized 30D"
+        }
+      },
+      "required": [
+        "date",
+        "dvol",
+        "realized_30d",
+        "gap"
+      ],
+      "title": "VrpAtReport",
       "type": "object"
     }
   },

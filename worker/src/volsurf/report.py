@@ -80,6 +80,15 @@ class DataDay(BaseModel):
     iv_check_max_gap_pts: float | None
 
 
+class VrpAtReport(BaseModel):
+    """Implied against realized at the report's end (00:00 UTC), from the worker's vrp.json."""
+
+    date: str
+    dvol: float
+    realized_30d: float | None
+    gap: float | None
+
+
 class CurrencyReport(BaseModel):
     currency: str
     model: str = Field(default="ssvi", description="surface model behind the tenor stats, "
@@ -94,6 +103,7 @@ class CurrencyReport(BaseModel):
     arbitrage: ArbDay
     fit: FitDay
     data: DataDay
+    vrp: VrpAtReport | None = None
 
 
 class Report(BaseModel):
@@ -247,6 +257,25 @@ def currency_report(
     )
 
 
+def vrp_at(store: Store, currency: str, at: datetime) -> VrpAtReport | None:
+    """DVOL and trailing realized vol at ``at`` from the worker's hourly vrp.json, if kept."""
+    p = store.root / "vrp.json"
+    if not p.exists():
+        return None
+    c = json.loads(p.read_text()).get("currencies", {}).get(currency)
+    if not c:
+        return None
+    key = at.strftime("%Y-%m-%dT%H:%MZ")
+    dv = dict(zip(c["dvol"]["t"], c["dvol"]["v"], strict=False))
+    rv = dict(zip(c["realized_30d"]["t"], c["realized_30d"]["v"], strict=False))
+    if key not in dv:
+        return None
+    r = rv.get(key)
+    return VrpAtReport(date=key, dvol=round(dv[key], 3),
+                       realized_30d=None if r is None else round(r, 3),
+                       gap=None if r is None else round(dv[key] - r, 3))
+
+
 def build_report(store: Store, day: date, now: datetime | None = None) -> Report:
     start = datetime(day.year, day.month, day.day, tzinfo=UTC)
     end = start + timedelta(days=1)
@@ -265,6 +294,7 @@ def build_report(store: Store, day: date, now: datetime | None = None) -> Report
         prev = bundles + [store.read_bundle(p) for p in
                           store.bundle_paths(cur, f"{start - timedelta(days=1):%Y-%m-%d}")]
         out[cur] = currency_report(cur, in_day, b_end, _pick(prev, start))
+        out[cur].vrp = vrp_at(store, cur, end)
     return Report(date=day, period_start=start, period_end=end, generated_at=now,
                   late=now - end > timedelta(minutes=15), currencies=out)
 

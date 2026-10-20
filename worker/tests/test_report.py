@@ -117,3 +117,15 @@ def test_publish_without_token_mirrors_locally(store, tmp_path):
     assert [d["date"] for d in idx["days"]["ETH"]] == ["2026-10-18"]
     assert (pub / "history" / "BTC" / "2026-10-18.json").exists()
     assert json.loads((pub / "reports" / "index.json").read_text())["dates"] == ["2026-10-18"]
+
+
+def test_report_carries_implied_against_realized_at_midnight(store, tmp_path):
+    end = START + timedelta(days=1)
+    key = end.strftime("%Y-%m-%dT%H:%MZ")
+    vrp = {"currencies": {"BTC": {"dvol": {"t": [key], "v": [40.0]},
+                                  "realized_30d": {"t": [key], "v": [25.5]}}}}
+    (tmp_path / "vrp.json").write_text(json.dumps(vrp))
+    r = build_report(store, DAY)
+    v = r.currencies["BTC"].vrp
+    assert v is not None and v.dvol == 40.0 and v.realized_30d == 25.5 and v.gap == 14.5
+    assert r.currencies["ETH"].vrp is None

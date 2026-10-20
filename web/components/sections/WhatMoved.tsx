@@ -106,6 +106,15 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
       </>,
     )
   }
+  if (r.vrp && r.vrp.gap != null && r.vrp.realized_30d != null) {
+    items.push(
+      <>
+        At midnight DVOL was <N v={r.vrp.dvol} /> and the index&rsquo;s realized volatility over the previous 30 days{' '}
+        <N v={r.vrp.realized_30d} />, so implied stood <N v={Math.abs(r.vrp.gap)} /> points {r.vrp.gap >= 0 ? 'above' : 'below'}{' '}
+        realized.
+      </>,
+    )
+  }
   const mid = a.totals.mid ?? {}
   const midTotal = Object.values(mid).reduce((x, y) => x + y, 0)
   const kinds = (['butterfly', 'vertical', 'calendar'] as const).filter((k) => (mid[k] ?? 0) > 0)
