@@ -107,6 +107,28 @@ test.describe('front page', () => {
     expect(errors).toEqual([])
   })
 
+  test('history slider: keyboard moves to a saved snapshot and back to live', async ({ page }) => {
+    const errors = watchErrors(page)
+    await page.goto('/')
+    const slider = page.getByRole('slider', { name: 'Snapshot time' })
+    await slider.scrollIntoViewIfNeeded()
+    await slider.focus()
+    await page.keyboard.press('Home')
+    await expect(page.getByText(/Showing the fitted surface at/)).toBeVisible()
+    await expect(slider).toHaveAttribute('aria-valuetext', /UTC/)
+    await page.keyboard.press('End')
+    await expect(slider).toHaveAttribute('aria-valuetext', 'Live')
+    await expect(page.getByText(/Showing the fitted surface at/)).toHaveCount(0)
+    expect(errors).toEqual([])
+  })
+
+  test('what moved: built from the daily report, levels when there is no earlier day', async ({ page }) => {
+    await page.goto('/')
+    const section = page.locator('section[aria-labelledby="moved-title"]')
+    await expect(section).toContainText(/From the daily report for \d+ \w+ 2026/)
+    await expect(section).toContainText(/snapshots/)
+  })
+
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await ctx.newPage()
