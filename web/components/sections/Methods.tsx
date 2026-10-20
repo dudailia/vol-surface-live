@@ -3,7 +3,14 @@ import { expiryLabel, fixed, utcStamp } from '@/lib/format'
 import { REPO_PUBLIC, REPO_URL } from '@/lib/site'
 
 /** Methods and limitations. Rules and counts come from the latest bundles, not from copy. */
-export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bundle>> }) {
+export function Methods({
+  bundles,
+  downloads,
+}: {
+  bundles: Partial<Record<'BTC' | 'ETH', Bundle>>
+  /** archive files that exist, as [label, href] */
+  downloads?: [string, string][]
+}) {
   const b = bundles.BTC ?? bundles.ETH
   if (!b) return null
   // drop_counts lists the reasons in the order the rules run (selection first, then quality).
@@ -198,6 +205,18 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
               <li>Quotes are a snapshot every five minutes; anything between snapshots is not seen.</li>
             </ul>
           </Block>
+
+          {downloads && downloads.length > 0 && (
+            <Block title="Data to download">
+              <ul className="list-disc space-y-1 pl-5 marker:text-graphite">
+                {downloads.map(([label, href]) => (
+                  <li key={href}>
+                    <a href={href}>{label}</a>
+                  </li>
+                ))}
+              </ul>
+            </Block>
+          )}
 
           <Block title="Source">
             <p>

@@ -240,6 +240,15 @@ test.describe('front page', () => {
     expect(errors.filter((e) => !e.includes('404'))).toEqual([])
   })
 
+  test('downloads: full bundles on request, slim ones for the page', async ({ request, page }) => {
+    const full = await (await request.get('/api/latest?full=1')).json()
+    const slim = await (await request.get('/api/latest')).json()
+    expect(full.BTC.expiries[0].quotes.instrument.length).toBeGreaterThan(0)
+    expect(slim.BTC.expiries[0].quotes.instrument).toEqual([])
+    await page.goto('/')
+    await expect(page.getByRole('link', { name: /Latest snapshot for both currencies, JSON/ })).toHaveAttribute('href', '/api/latest?full=1')
+  })
+
   test('share image and icon are real PNGs', async ({ request }) => {
     for (const path of ['/opengraph-image', '/icon']) {
       const res = await request.get(path)

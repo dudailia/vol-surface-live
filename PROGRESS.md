@@ -249,3 +249,12 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - **Worker on Fly**: the risk-premium job runs at :07; memory is 191 MB of 470 MB; the volume holds about 15 MB.
 - **Counts**: worker 65, Vitest 15, Playwright 21. Lighthouse mobile 94 to 97, desktop 100, all other categories 100.
 
+### 03:50 UTC
+- **Accessibility:** the 3D view is focusable (role img, with a label) and turns with the arrow keys, with an e2e test.
+- **Daily report:** it now records DVOL and the index's realized vol at midnight, from the worker's own vrp.json, and "What moved" states them. Worker version 5 is deployed and the first report with them is tonight's.
+- **Reverted the per-section Suspense boundaries.** The server streamed those sections as hidden blocks that an inline script swapped into place. That hid the content without JavaScript, and on CI's slower runner tests saw sections twice mid-swap. A test now checks the server HTML has no such blocks. The longest hydration task is back to about 200 ms under 8x throttling; CI's median of five mobile runs absorbs the runner variance.
+- **Charts at 768px:** day ticks are thinned by pixel spacing, so labels on narrow panels never collide.
+- **Methods: "Data to download":** the latest snapshot (`/api/latest?full=1`, full bundles; the plain URL stays slim for the page), the latest daily report, and hourly raw quotes as Parquet. Links are listed only for files the archive holds.
+- The quality script's port cleanup was malformed (`lsof` with two ports) and is fixed.
+- **Counts:** worker 66, Vitest 15, Playwright 22. Lighthouse mobile 94 to 97, desktop 100.
+
