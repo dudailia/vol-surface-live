@@ -10,7 +10,10 @@ from .bundle import Bundle
 
 
 def schemas() -> dict[str, dict[str, object]]:
-    out = {"bundle.schema.json": Bundle.model_json_schema(mode="serialization")}
+    from .vrp import VrpReport
+
+    out = {"bundle.schema.json": Bundle.model_json_schema(mode="serialization"),
+           "vrp.schema.json": VrpReport.model_json_schema(mode="serialization")}
     try:
         from .report import Report
     except ImportError:  # pragma: no cover

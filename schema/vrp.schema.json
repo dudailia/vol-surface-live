@@ -1,0 +1,213 @@
+{
+  "$defs": {
+    "Series": {
+      "properties": {
+        "t": {
+          "description": "ISO timestamps, UTC",
+          "items": {
+            "type": "string"
+          },
+          "title": "T",
+          "type": "array"
+        },
+        "v": {
+          "description": "vol points",
+          "items": {
+            "type": "number"
+          },
+          "title": "V",
+          "type": "array"
+        }
+      },
+      "required": [
+        "t",
+        "v"
+      ],
+      "title": "Series",
+      "type": "object"
+    },
+    "VrpCurrency": {
+      "properties": {
+        "currency": {
+          "title": "Currency",
+          "type": "string"
+        },
+        "deribit_hv": {
+          "$ref": "#/$defs/Series"
+        },
+        "dvol": {
+          "$ref": "#/$defs/Series"
+        },
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VrpForward"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gap_forward": {
+          "$ref": "#/$defs/Series"
+        },
+        "gap_trailing": {
+          "$ref": "#/$defs/Series"
+        },
+        "latest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VrpLatest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ours_atm30": {
+          "$ref": "#/$defs/Series"
+        },
+        "realized_30d": {
+          "$ref": "#/$defs/Series"
+        }
+      },
+      "required": [
+        "currency",
+        "dvol",
+        "realized_30d",
+        "gap_trailing",
+        "gap_forward",
+        "deribit_hv",
+        "ours_atm30",
+        "latest",
+        "forward"
+      ],
+      "title": "VrpCurrency",
+      "type": "object"
+    },
+    "VrpForward": {
+      "properties": {
+        "days": {
+          "title": "Days",
+          "type": "integer"
+        },
+        "end": {
+          "title": "End",
+          "type": "string"
+        },
+        "mean_gap": {
+          "title": "Mean Gap",
+          "type": "number"
+        },
+        "median_gap": {
+          "title": "Median Gap",
+          "type": "number"
+        },
+        "share_positive": {
+          "description": "share of days DVOL exceeded the realized vol of the following 30 days",
+          "title": "Share Positive",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "string"
+        }
+      },
+      "required": [
+        "days",
+        "start",
+        "end",
+        "share_positive",
+        "median_gap",
+        "mean_gap"
+      ],
+      "title": "VrpForward",
+      "type": "object"
+    },
+    "VrpLatest": {
+      "properties": {
+        "date": {
+          "title": "Date",
+          "type": "string"
+        },
+        "dvol": {
+          "title": "Dvol",
+          "type": "number"
+        },
+        "gap": {
+          "title": "Gap",
+          "type": "number"
+        },
+        "ours_atm30": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ours Atm30"
+        },
+        "ours_ts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ours Ts"
+        },
+        "realized_30d": {
+          "title": "Realized 30D",
+          "type": "number"
+        }
+      },
+      "required": [
+        "date",
+        "dvol",
+        "realized_30d",
+        "gap",
+        "ours_atm30",
+        "ours_ts"
+      ],
+      "title": "VrpLatest",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "currencies": {
+      "additionalProperties": {
+        "$ref": "#/$defs/VrpCurrency"
+      },
+      "title": "Currencies",
+      "type": "object"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "method": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Method",
+      "type": "object"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "generated_at",
+    "method",
+    "currencies"
+  ],
+  "title": "VrpReport",
+  "type": "object"
+}

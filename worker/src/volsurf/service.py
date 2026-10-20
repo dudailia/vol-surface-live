@@ -21,10 +21,14 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
+from .blob import Publisher
 from .config import CURRENCIES, Settings
+from .deribit import DeribitClient
 from .pipeline import run_once
 from .report import build_report, compact_surface, publish
 from .store import Store
+from .vrp import compute as compute_vrp
+from .vrp import ours_series
 
 log = logging.getLogger(__name__)
 
@@ -107,6 +111,15 @@ def build_app(settings: Settings, state: State) -> Starlette:
         body = {c: hourly_history(store, c) for c in CURRENCIES}
         return JSONResponse(body, headers={"cache-control": "public, max-age=300"})
 
+    async def vrp(req: Request) -> Response:
+        if not authorised(req):
+            return JSONResponse({"error": "unauthorised"}, status_code=401)
+        p = settings.data_dir / "vrp.json"
+        if not p.exists():
+            return JSONResponse({"error": "not computed yet"}, status_code=404)
+        return Response(p.read_text(), media_type="application/json",
+                        headers={"cache-control": "public, max-age=600"})
+
     async def health(_: Request) -> Response:
         now = datetime.now(UTC)
         ok = all(now - state.last_ok.get(c, datetime.min.replace(tzinfo=UTC)) < STALE_AFTER
@@ -119,6 +132,7 @@ def build_app(settings: Settings, state: State) -> Starlette:
     return Starlette(routes=[
         Route("/latest.json", latest),
         Route("/history.json", history),
+        Route("/vrp.json", vrp),
         Route("/healthz", health),
     ])
 
@@ -148,10 +162,38 @@ def serve(settings: Settings) -> None:
         report = await asyncio.to_thread(build_report, store, day)
         await asyncio.to_thread(publish, settings, report)
         state.last_report = f"{day}"
+        vrp_path = settings.data_dir / "vrp.json"
+        if vrp_path.exists():
+            # One upload a day keeps a copy in the archive for when the worker is down.
+            await asyncio.to_thread(
+                Publisher(settings.data_dir).put, "vrp.json", vrp_path.read_bytes(),
+                "application/json", 3600)
         for c in CURRENCIES:
             await asyncio.to_thread(compact_day, store, c, f"{day}")
         await asyncio.to_thread(prune, store, now)
         log.info("daily report for %s published", day)
+
+    async def vrp_job() -> None:
+        """Implied against realized vol, hourly (about six Deribit requests)."""
+        now = datetime.now(UTC)
+        ours = {}
+        for c in CURRENCIES:
+            compact = hourly_history(store, c, hours=72)
+            latest = store.latest_bundle(c)
+            if latest:
+                compact.append(compact_surface(latest))
+            ours[c] = ours_series(compact)
+        try:
+            async with DeribitClient(settings.fetch) as dc:
+                report = await compute_vrp(dc, CURRENCIES, ours, now)
+        except Exception:
+            log.exception("vrp job failed")
+            return
+        path = settings.data_dir / "vrp.json"
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(report.model_dump_json())
+        tmp.replace(path)
+        log.info("vrp written")
 
     async def catch_up() -> None:
         """If the worker was down at midnight, write any missing report (marked late)."""
@@ -171,8 +213,11 @@ def serve(settings: Settings) -> None:
                       coalesce=True, misfire_grace_time=120)
         sched.add_job(daily_job, "cron", hour=0, minute=0, second=40, max_instances=1,
                       misfire_grace_time=3600)
+        sched.add_job(vrp_job, "cron", minute=7, second=0, max_instances=1, coalesce=True,
+                      misfire_grace_time=600)
         sched.start()
         asyncio.get_running_loop().create_task(catch_up())
+        asyncio.get_running_loop().create_task(vrp_job())
         yield
         sched.shutdown(wait=False)
 
