@@ -9,6 +9,8 @@ import { allSurfaces, slimForClient } from '@/lib/bundle'
 import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime, getVrp } from '@/lib/data'
 import { vrpView } from '@/lib/vrp'
 import { ImpliedRealized } from '@/components/sections/ImpliedRealized'
+import { Compare } from '@/components/sections/Compare'
+import { LocalVol } from '@/components/sections/LocalVol'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
 
@@ -40,7 +42,9 @@ export default async function Page() {
         <Hero />
         <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />
         <Explainer />
+        <Compare />
         <ImpliedRealized views={vrpViews} />
+        <LocalVol />
         <History daily={index?.days ?? {}} hourly={hourly} />
         <Methods bundles={latest} />
       </main>

@@ -140,6 +140,25 @@ test.describe('front page', () => {
     await expect(sec).toContainText('index for ether')
   })
 
+  test('bitcoin against ether: three panels with both series and a sentence of live numbers', async ({ page }) => {
+    await page.goto('/')
+    const sec = page.locator('section[aria-labelledby="compare-title"]')
+    await sec.scrollIntoViewIfNeeded()
+    await expect(sec).toContainText(/At 30 days, ether.s at-the-money vol is [\d.]+% against bitcoin.s [\d.]+%/)
+    await expect(sec.locator('figure svg')).toHaveCount(3)
+    await expect(sec.getByRole('table', { name: 'Bitcoin and ether by expiry' })).toBeAttached()
+  })
+
+  test('local volatility: heatmap with stated grid limits and blank cells explained', async ({ page }) => {
+    await page.goto('/')
+    const sec = page.locator('section[aria-labelledby="lv-title"]')
+    await sec.scrollIntoViewIfNeeded()
+    await expect(sec).toContainText(/it runs from [\d.]+% to [\d.]+%/)
+    await expect(sec).toContainText(/strikes from \d+% to \d+% of the forward/)
+    await expect(sec).toContainText(/\d+ of \d+ cells are blank/)
+    expect(await sec.locator('svg rect').count()).toBeGreaterThan(100)
+  })
+
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await ctx.newPage()
