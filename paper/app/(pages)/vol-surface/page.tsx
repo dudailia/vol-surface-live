@@ -2,6 +2,7 @@ import { CaseStudyTitle, Meta, Section } from '@/components/CaseStudy'
 import { Annotated, Shell } from '@/components/Layout'
 import { VolSurfaceHoldout } from '@/components/figures/VolSurfaceHoldout'
 import { VolSurfaceSmile } from '@/components/figures/VolSurfaceSmile'
+import { VolSurfaceVrp } from '@/components/figures/VolSurfaceVrp'
 import { fact } from '@/content/facts'
 import { papers } from '@/content/papers'
 import { pageMeta } from '@/lib/meta'
@@ -90,6 +91,46 @@ export default function VolSurface() {
           </p>
         </Section>
 
+        <Section heading="Implied against realized">
+          <p>
+            Implied volatility is what options charge for movement; realized volatility is how much the price then moved. The
+            page sets DVOL, Deribit&rsquo;s 30-day implied volatility index, against the realized volatility of Deribit&rsquo;s
+            index, computed from its price every six hours as the annualized root mean square of log returns over 30 days. At
+            00:00 UTC on 20 October 2026 bitcoin&rsquo;s DVOL was {v('vsVrpBtcDvol')} and the index had moved at{' '}
+            {v('vsVrpBtcRealized')} over the previous 30 days.
+          </p>
+          <p>
+            The fair comparison is with what came next. On {v('vsVrpBtcShare')}% of the {v('vsVrpBtcDays')} days from 21 October
+            2025 to 20 September 2026, bitcoin&rsquo;s DVOL was above the realized volatility of the following 30 days, by a median
+            of {v('vsVrpBtcMedian')} points; for ether it was {v('vsVrpEthShare')}% of days, by a median of {v('vsVrpEthMedian')}.
+            That gap is the volatility risk premium: what option sellers were paid, on average, for carrying the risk. DVOL
+            prices the wings as well as the money, so it runs a little above the at-the-money vol the surface itself reports.
+          </p>
+        </Section>
+
+        <VolSurfaceVrp />
+
+        <Section heading="Bitcoin against ether">
+          <p>
+            Read from the same fits, ether&rsquo;s options are dearer than bitcoin&rsquo;s at every maturity: thirty-day
+            at-the-money vol was {v('vsEthAtm30')}% against {v('vsBtcAtm30')}%. Both markets paid up for puts, with 25-delta risk
+            reversals of {v('vsEthRr30')} for ether and {v('vsBtcRr30')} for bitcoin, and ether&rsquo;s wings sat higher above the
+            money, with a 25-delta butterfly of {v('vsEthBf30')} against {v('vsBtcBf30')}. The live page draws the three term
+            structures for both on shared axes and redraws them every five minutes.
+          </p>
+        </Section>
+
+        <Section heading="Local volatility">
+          <p>
+            Dupire&rsquo;s formula turns the implied surface into the volatility the price would need at each level and date for one
+            model to reprice every option at once: σ<sup>2</sup><sub>loc</sub> = ∂w/∂T ÷ g(k). It needs smooth first and second
+            derivatives, which a fitted, arbitrage-free surface supplies and raw quotes do not. On a grid of 33 strikes, from 45%
+            to 223% of the forward, by 24 maturities between the first and last expiry, bitcoin&rsquo;s local volatility ran from{' '}
+            {v('vsBtcLvLo')}% to {v('vsBtcLvHi')}%. {v('vsBtcLvBlank')} of the {v('vsLvCells')} cells are left blank because they lie
+            more than three at-the-money standard deviations from the money, where the surface is extrapolation.
+          </p>
+        </Section>
+
         <Section heading="How it is computed and tested">
           <p>
             A Python worker on Fly.io in London calls Deribit&rsquo;s public API every five minutes, with no account: one book
@@ -117,6 +158,7 @@ export default function VolSurface() {
             ['data', 'Deribit public API, no authentication'],
             ['snapshot', 'paper/data/snapshot-2026-10-20T0154Z.json'],
             ['comparison', 'paper/data/model-comparison-2026-10-19.json'],
+            ['implied and realized', 'paper/data/vrp-2026-10-20T0223Z.json'],
             ['stack', 'Python on Fly.io (London); Next.js, three.js and Vercel Blob'],
           ]}
         />

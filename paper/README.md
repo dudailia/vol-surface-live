@@ -10,7 +10,8 @@ A page for the site in the same form as the other papers: `app/(pages)/<slug>/pa
 | `app/(pages)/vol-surface/opengraph-image.tsx` | same path (needs a `thumbFor('vol-surface')` entry in `lib/thumbs.ts`) |
 | `components/figures/VolSurfaceSmile.tsx` | same path. Fig. 1: one expiry, quotes with both fits |
 | `components/figures/VolSurfaceHoldout.tsx` | same path. Fig. 2: held-out error over a day, both models |
-| `lib/volsurface/ssvi.ts`, `lib/volsurface/snapshot.json`, `lib/volsurface/holdout.json` | same paths |
+| `components/figures/VolSurfaceVrp.tsx` | same path. Fig. 3: DVOL against realized vol, and the forward gap |
+| `lib/volsurface/ssvi.ts`, `lib/volsurface/snapshot.json`, `lib/volsurface/holdout.json`, `lib/volsurface/vrp.json` | same paths |
 | `content/papers.entry.ts` | merge the object into `papers` in `content/papers.ts` |
 | `content/facts.entry.ts` | merge the entries into `facts` in `content/facts.ts` |
 
@@ -23,9 +24,10 @@ A page for the site in the same form as the other papers: `app/(pages)/<slug>/pa
 
 ## Where the numbers come from
 
-Every number is read from two archived files:
+Every number is read from three archived files:
 
 - `data/snapshot-2026-10-20T0154Z.json`: one live bundle as served by the worker on Fly.io (BTC at 01:54:59 UTC, ETH at 01:55:01 UTC, 20 October 2026). It contains both fits.
+- `data/vrp-2026-10-20T0223Z.json`: implied against realized volatility as the worker computed it at 02:22 UTC on 20 October 2026, from Deribit's index (a year, every six hours), DVOL (daily) and Deribit's published historical volatility.
 - `data/model-comparison-2026-10-19.json`: SSVI against eSSVI on every snapshot archived on 19 October 2026 (65 BTC, 64 ETH, 17:22 to 24:00 UTC). The worker's laptop run lost its network from about 17:34 to 18:45 UTC, so that stretch has no snapshots.
 
 To regenerate the comparison from the archive's raw Parquet:
