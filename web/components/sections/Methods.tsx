@@ -121,9 +121,18 @@ export function Methods({
               <p className="mt-4">
                 eSSVI contains SSVI, so on the quotes it is fitted to it can only do as well or better. To choose between them
                 fairly, both are refitted every five minutes with every fifth quote held out, and the page defaults to the model
-                with the lower median error on those held-out quotes over the last hour. Latest BTC: eSSVI{' '}
-                <span className="num">{fixed(b.selection.essvi, 2)}</span>, SSVI <span className="num">{fixed(b.selection.ssvi, 2)}</span>{' '}
-                vol points over <span className="num">{b.selection.n}</span> {b.selection.n === 1 ? 'snapshot' : 'snapshots'}.
+                with the lower median error on those held-out quotes over the last hour.
+                {(['BTC', 'ETH'] as const).map((c) => {
+                  const sel = bundles[c]?.selection
+                  if (!sel) return null
+                  return (
+                    <span key={c}>
+                      {' '}
+                      {c}: eSSVI <span className="num">{fixed(sel.essvi, 2)}</span>, SSVI <span className="num">{fixed(sel.ssvi, 2)}</span>{' '}
+                      vol points over <span className="num">{sel.n}</span> {sel.n === 1 ? 'snapshot' : 'snapshots'}.
+                    </span>
+                  )
+                })}
               </p>
               {(['BTC', 'ETH'] as const).map((c) => {
                 const x = bundles[c]
