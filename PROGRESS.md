@@ -233,3 +233,19 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
   - worker tests for `/vrp.json` (token, 404 before the first computation) and for the ATM series.
 - **Counts**: worker 65 tests; Vitest 13; Playwright 20. Lighthouse mobile 94 to 95, desktop 100.
 
+### 03:20 UTC: F continues
+- **CI Lighthouse flakiness diagnosed.** The runner's CPU speed varies about 2x between runs (benchmark index 1,236 to 2,345), which moved the home page's mobile score from 67 to 94 on unchanged code. Two changes:
+  - Real: page sections hydrate as separate Suspense boundaries. The longest task under 8x throttling fell from 200 to 304 ms down to 172 to 196 ms.
+  - CI: the mobile Lighthouse run takes the median of 5. CI has been green since.
+- **Explainer step 1** draws both fits on one expiry (chosen fit solid, the other dashed). On 27 Nov 2026 SSVI tracks the call wing slightly better and both miss the deepest puts; the page says what it shows.
+- **"What moved"** gives failures by kind: on 19 October BTC had 575 mid-quote failures, 574 butterflies and 1 vertical spread.
+- **Methods** has a "Tests" block saying what the code is checked against, with no tolerance numbers on the page.
+- **Share image**: the whole surface is in frame, quote dots are smaller, and the fit is named in the subtitle.
+- **Tests**:
+  - axe also runs after scrolling, with every deferred chart mounted;
+  - the poster renderer has unit tests (quad count, finite coordinates, a ring for every flagged quote, labels);
+  - the quality script frees ports 3200 and 3300 first. A stale server had produced a false console-error failure locally.
+- **Reports page**: shows the fit behind each report.
+- **Worker on Fly**: the risk-premium job runs at :07; memory is 191 MB of 470 MB; the volume holds about 15 MB.
+- **Counts**: worker 65, Vitest 15, Playwright 21. Lighthouse mobile 94 to 97, desktop 100, all other categories 100.
+

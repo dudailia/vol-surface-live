@@ -20,7 +20,8 @@ export default async function Reports() {
       <h1 className="mt-6 text-h1">Daily reports</h1>
       <p className="mt-4 max-w-[var(--measure)] text-graphite">
         Each day at 00:00 UTC the worker writes a JSON summary of the previous 24 hours. Every number below is read from
-        those files. Changes are against the surface 24 hours earlier, in vol points.
+        those files. Changes are against the surface 24 hours earlier, in vol points. A report uses extended SSVI only when
+        both ends of its day carry that fit, so changes always compare like with like.
       </p>
       {reports.length === 0 ? (
         <p className="mt-10 max-w-[var(--measure)]">No reports yet. The first is written at the first 00:00 UTC after the worker starts.</p>
@@ -36,6 +37,7 @@ export default async function Reports() {
                 <th scope="col" className="py-2 pr-4 text-right font-normal">ETH 30d ATM</th>
                 <th scope="col" className="py-2 pr-4 text-right font-normal">change</th>
                 <th scope="col" className="py-2 pr-4 text-right font-normal">Tradeable arb</th>
+                <th scope="col" className="py-2 pr-4 font-normal">Fit</th>
                 <th scope="col" className="py-2 font-normal">File</th>
               </tr>
             </thead>
@@ -59,6 +61,7 @@ export default async function Reports() {
                       ]
                     })}
                     <td className="num py-2 pr-4 text-right">{trade}</td>
+                    <td className="py-2 pr-4">{r.currencies.BTC?.model === 'essvi' ? 'eSSVI' : 'SSVI'}</td>
                     <td className="py-2">{url ? <a href={url}>JSON</a> : <span className="text-graphite">local</span>}</td>
                   </tr>
                 )
