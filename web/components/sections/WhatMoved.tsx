@@ -143,7 +143,14 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
         'none of the failures were tradeable at quoted prices.'
       ) : (
         <>
-          <N v={tradeable} dp={0} /> {tradeable === 1 ? 'was' : 'were'} tradeable at quoted prices, before fees.
+          <N v={tradeable} dp={0} /> {tradeable === 1 ? 'was' : 'were'} tradeable at quoted prices
+          {/* The report lists tradeable failures first, largest first. */}
+          {a.largest[0]?.level === 'tradeable' && (
+            <>
+              , {tradeable === 1 ? 'by' : 'the largest by'} <N v={a.largest[0].size_usd} dp={2} /> USD per option
+            </>
+          )}
+          , before fees.
         </>
       )}
     </>,
