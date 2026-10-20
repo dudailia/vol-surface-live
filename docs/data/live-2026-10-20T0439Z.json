@@ -1,0 +1,76 @@
+{
+ "source": "https://vol.iliaduda.com/api/latest?full=1",
+ "fetched_for": "docs/linkedin-post.md",
+ "currencies": {
+  "BTC": {
+   "ts": "2026-10-20T04:39:59.020181Z",
+   "index_price": 82009.42,
+   "selected_model": "essvi",
+   "selection": {
+    "essvi": 1.3222,
+    "last_essvi": 1.2233,
+    "last_ssvi": 1.5827,
+    "metric": "median pooled RMSE on held-out quotes, vol points",
+    "n": 12,
+    "selected": "essvi",
+    "ssvi": 1.6747,
+    "window": 12
+   },
+   "tenor_30d": {
+    "essvi": {
+     "atm": 36.0265,
+     "bf25": 1.0745,
+     "call25": 35.0292,
+     "put25": 39.1729,
+     "rr25": -4.1437
+    },
+    "ssvi": {
+     "atm": 35.7631,
+     "bf25": 1.2791,
+     "call25": 35.3091,
+     "put25": 38.7752,
+     "rr25": -3.4661
+    }
+   },
+   "cleaning": {
+    "n_raw": 884,
+    "n_kept": 325
+   }
+  },
+  "ETH": {
+   "ts": "2026-10-20T04:40:01.006835Z",
+   "index_price": 2409.77,
+   "selected_model": "essvi",
+   "selection": {
+    "essvi": 1.3243,
+    "last_essvi": 1.3325,
+    "last_ssvi": 1.7183,
+    "metric": "median pooled RMSE on held-out quotes, vol points",
+    "n": 12,
+    "selected": "essvi",
+    "ssvi": 1.6677,
+    "window": 12
+   },
+   "tenor_30d": {
+    "essvi": {
+     "atm": 49.0529,
+     "bf25": 1.6323,
+     "call25": 48.9963,
+     "put25": 52.3742,
+     "rr25": -3.3779
+    },
+    "ssvi": {
+     "atm": 48.52,
+     "bf25": 2.1936,
+     "call25": 48.645,
+     "put25": 52.7824,
+     "rr25": -4.1374
+    }
+   },
+   "cleaning": {
+    "n_raw": 768,
+    "n_kept": 283
+   }
+  }
+ }
+}
