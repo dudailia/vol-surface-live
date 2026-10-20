@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 
 from volsurf.blob import MONTHLY_BUDGET, BudgetExceededError, Publisher
 from volsurf.config import Settings
-from volsurf.service import State, build_app, compact_day, prune
+from volsurf.service import State, build_app, compact_day, hourly_history, prune
 from volsurf.store import Store
 
 
@@ -74,3 +74,18 @@ def test_compaction_and_pruning(tmp_path):
     prune(st, ts + timedelta(days=200))
     assert not (tmp_path / "bundles" / "BTC" / "2026-01-01").exists()
     assert not (tmp_path / "raw-daily" / "BTC" / "2026-01-01.parquet").exists()
+
+
+def test_hourly_history_picks_the_snapshot_nearest_each_hour(tmp_path):
+    st = Store(tmp_path)
+    now = datetime(2026, 10, 20, 3, 7, tzinfo=UTC)
+    base = {"index_price": 1.0, "ssvi": {"rho": 0.0, "eta": 1.0, "gamma": 0.5}, "expiries": []}
+    # Server time can read a second early: 00:59:59 stands for the 01:00 run.
+    stamps = ["2026-10-20T00:54:59", "2026-10-20T00:59:59", "2026-10-20T01:04:59",
+              "2026-10-20T01:59:58", "2026-10-20T02:31:00", "2026-10-19T23:59:59"]
+    for s in stamps:
+        ts = datetime.fromisoformat(s).replace(tzinfo=UTC)
+        st.write_bundle("BTC", ts, {**base, "ts": ts.isoformat()})
+    got = [h["ts"][:19] for h in hourly_history(st, "BTC", now=now)]
+    # 00:00 from 23:59:59, 01:00 from 00:59:59, 02:00 from 01:59:58; 02:31 is no hour's.
+    assert got == ["2026-10-19T23:59:59", "2026-10-20T00:59:59", "2026-10-20T01:59:58"]

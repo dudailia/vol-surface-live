@@ -61,17 +61,31 @@ def prune(store: Store, today: datetime) -> None:
                 f.unlink()
 
 
-def hourly_history(store: Store, cur: str, hours: int = 48) -> list[dict[str, Any]]:
-    now = datetime.now(UTC)
-    days = {f"{now - timedelta(days=i):%Y-%m-%d}" for i in range(hours // 24 + 2)}
-    out = []
-    for day in sorted(days):
-        for p in store.bundle_paths(cur, day):
-            if p.stem.endswith("00"):  # on the hour
-                b = store.read_bundle(p)
-                if now - datetime.fromisoformat(b["ts"]) <= timedelta(hours=hours):
-                    out.append(compact_surface(b))
-    return out
+def hourly_history(store: Store, cur: str, hours: int = 48,
+                   now: datetime | None = None) -> list[dict[str, Any]]:
+    """One snapshot per hour for the last ``hours``: the one nearest the top of the hour.
+
+    Snapshot files are named by Deribit's server time, which can read a second before the
+    scheduled minute (01:19:59 for the 01:20 run), so names are matched by distance to the
+    hour, not by a suffix. Only the chosen files are read.
+    """
+    now = now or datetime.now(UTC)
+    best: dict[datetime, tuple[float, Any]] = {}
+    for i in range(hours // 24 + 2):
+        day = now - timedelta(days=i)
+        for p in store.bundle_paths(cur, f"{day:%Y-%m-%d}"):
+            try:
+                t = datetime.strptime(f"{day:%Y-%m-%d}{p.stem}", "%Y-%m-%d%H%M").replace(
+                    tzinfo=UTC)
+            except ValueError:
+                continue
+            hour = (t + timedelta(minutes=30)).replace(minute=0, second=0, microsecond=0)
+            dist = abs((t - hour).total_seconds())
+            if dist > 300 or now - hour > timedelta(hours=hours) or hour > now:
+                continue
+            if hour not in best or dist < best[hour][0]:
+                best[hour] = (dist, p)
+    return [compact_surface(store.read_bundle(best[h][1])) for h in sorted(best)]
 
 
 def build_app(settings: Settings, state: State) -> Starlette:

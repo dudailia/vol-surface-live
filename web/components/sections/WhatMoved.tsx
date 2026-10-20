@@ -45,6 +45,22 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
   const tradeable = Object.values(a.totals.tradeable ?? {}).reduce((x, y) => x + y, 0)
   const items: React.ReactNode[] = []
 
+  // The first report has no day before it: state the levels instead of changes.
+  if (!r.previous_ts && t30) {
+    items.push(
+      <>
+        This is the first daily report, so there is no earlier day to compare with. At midnight, thirty-day at-the-money vol
+        was <N v={t30.atm} />% and the 30-day 25-delta risk reversal <N v={t30.rr25} sign />
+        {t7 ? (
+          <>
+            ; seven-day vol was <N v={t7.atm} />%
+          </>
+        ) : null}
+        .
+      </>,
+    )
+  }
+
   if (t30 && t30.atm_chg != null) {
     items.push(
       Math.abs(t30.atm_chg) < 0.05 ? (
@@ -131,7 +147,7 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
         ))}
       </ul>
       <p className="mt-6 text-note text-graphite">
-        From the daily report for {utcDate(report.period_start)}.{' '}
+        From the daily report for {utcDate(report.period_start)}, fitted with {r.model === 'essvi' ? 'eSSVI' : 'SSVI'}.{' '}
         <a href={`/reports#${report.date}`}>All reports</a>
       </p>
     </>
