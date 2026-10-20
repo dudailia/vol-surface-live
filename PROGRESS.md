@@ -258,3 +258,16 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - The quality script's port cleanup was malformed (`lsof` with two ports) and is fixed.
 - **Counts:** worker 66, Vitest 15, Playwright 22. Lighthouse mobile 94 to 97, desktop 100.
 
+
+### 04:20 UTC
+- **Worker version 6:** the model-selection window (the last 12 snapshots' hold-out errors) is rebuilt from stored bundles on startup, so a restart no longer resets the page's default model to "too few snapshots".
+- **Methods:**
+  - a "Raw-quote failures now" table lists the largest static-arbitrage failures in the latest snapshot, per currency, in USD per option, split into mid and tradeable;
+  - its tables fit a 375px phone (wrapped headers, short expiry labels);
+  - the hold-out comparison is given for both currencies (at 04:10 UTC: BTC eSSVI 1.27 against SSVI 1.58, ETH 1.33 against 1.65, over 12 snapshots each);
+  - the request count was wrong ("about two dozen per currency"); it is twelve per currency per run (instrument list, book summary, ten tickers). README fixed too.
+- **One number, one value:** "Implied against realized" quoted our 30-day ATM vol from the worker's hourly SSVI series (35.7) while the hero showed the eSSVI fit (36.0) for the same snapshot. The sentence now reads the live fit on screen; the hourly dots are labelled SSVI.
+- **"What moved"** says its figures use only the snapshots that arrived (62 of 288 on 19 October).
+- **README** has a "What the page shows" section.
+- **Frame time while morphing** (GPU Chromium, 1440px): median 8.3 ms, p95 about 10 ms.
+- **Counts:** worker 67, Vitest 15, Playwright 23. CI green through "Methods tables fit a phone"; later runs in progress.
