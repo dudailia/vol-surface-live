@@ -8,6 +8,17 @@ Live page: https://vol.iliaduda.com
 
 An implied-volatility surface is the standard way to read an options market: one picture of how much movement is priced, at which strikes and for which dates. Building one from real quotes means dealing with stale and crossed markets, solving implied vols correctly, fitting a model that cannot produce arbitrage, and being clear about where the model does not fit. This project does all of that in the open, with tests, on data anyone can check.
 
+## What the page shows
+
+- **The surface**, in 3D (three.js): the fitted surface, the quotes it was fitted to, and the quotes that break static arbitrage. Drag or use the arrow keys to turn it. It morphs between snapshots and between models in parameter space, so every frame stays free of calendar arbitrage. On phones it is a labelled still image until you ask for 3D.
+- **What moved**: sentences built only from the latest daily report.
+- **How the surface is built**: seven steps, from implied vol to local vol, with a sticky chart that redraws from the live snapshot.
+- **Bitcoin against ether**: ATM vol, 25-delta risk reversal and butterfly by expiry, on shared axes.
+- **Implied against realized**: DVOL and our 30-day ATM vol against realized vol, and the volatility risk premium as it turned out.
+- **Local volatility**: a Dupire heatmap from the fit on screen, with the grid limits stated.
+- **History**: a slider over daily and hourly surfaces.
+- **Methods**: data, cleaning (with counts), both models and how the default is chosen, the largest raw-quote failures right now, tests, limitations, and links to download the data.
+
 ## How it works
 
 ```mermaid
