@@ -54,6 +54,9 @@ type Props = {
   onFail: (reason: string) => void
   onHover?: (q: CanvasQuote | null, x: number, y: number) => void
   labels: React.RefObject<HTMLDivElement | null>
+  /** container of page text laid over the canvas; a label that would sit under one of its
+   *  headings, paragraphs or [data-avoid] elements is hidden */
+  avoid?: React.RefObject<HTMLElement | null>
   ref?: Ref<CanvasHandle>
 }
 
@@ -460,7 +463,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
     }
 
     // --- labels: DOM nodes positioned from 3D anchors each frame
-    type Anchor = { el: HTMLElement; p: THREE.Vector3 }
+    type Anchor = { el: HTMLElement; p: THREE.Vector3; w: number; h: number; hidden: boolean }
     let anchors: Anchor[] = []
     function collectAnchors() {
       const box = live.current.labels.current
@@ -468,7 +471,24 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
       if (!box) return
       box.querySelectorAll<HTMLElement>('[data-anchor]').forEach((node) => {
         const [x, y, z] = (node.dataset.anchor ?? '0,0,0').split(',').map(Number)
-        anchors.push({ el: node, p: new THREE.Vector3(x, y, z) })
+        const inner = node.firstElementChild as HTMLElement | null
+        anchors.push({ el: node, p: new THREE.Vector3(x, y, z), w: inner?.offsetWidth ?? 0, h: inner?.offsetHeight ?? 0, hidden: false })
+      })
+    }
+    // Text blocks over the canvas, in canvas pixels. Measured on resize, not per frame.
+    type Box = { l: number; t: number; r: number; b: number }
+    let avoidBoxes: Box[] = []
+    function measureAvoid() {
+      const root = live.current.avoid?.current
+      avoidBoxes = []
+      if (!root || !el) return
+      const base = el.getBoundingClientRect()
+      root.querySelectorAll<HTMLElement>('h1, p, [data-avoid]').forEach((node) => {
+        // Watch each block, so text that rewraps (a new snapshot, the history slider) is re-measured.
+        ro.observe(node)
+        const r = node.getBoundingClientRect()
+        if (r.width === 0 || r.bottom <= base.top || r.top >= base.bottom) return
+        avoidBoxes.push({ l: r.left - base.left - 6, t: r.top - base.top - 4, r: r.right - base.left + 6, b: r.bottom - base.top + 4 })
       })
     }
     collectAnchors()
@@ -483,13 +503,18 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
       for (const a of anchors) {
         tmp.copy(a.p).project(camera)
         let x = ((tmp.x + 1) / 2) * w
+        const align = a.el.dataset.align
         // Right-aligned labels hang left of their anchor; keep them inside the figure.
-        if (a.el.dataset.align === 'right') {
-          const inner = a.el.firstElementChild as HTMLElement | null
-          x = Math.max(x, (inner?.offsetWidth ?? 0) + 2)
-        }
+        if (align === 'right') x = Math.max(x, a.w + 2)
         const y = ((1 - tmp.y) / 2) * h
         a.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`
+        const l = align === 'right' ? x - a.w : align === 'center' ? x - a.w / 2 : x
+        const t = y - a.h / 2
+        const hide = a.w > 0 && avoidBoxes.some((b) => l < b.r && l + a.w > b.l && t < b.b && t + a.h > b.t)
+        if (hide !== a.hidden) {
+          a.hidden = hide
+          a.el.style.opacity = hide ? '0' : ''
+        }
       }
     }
 
@@ -512,9 +537,14 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
       camera.updateProjectionMatrix()
       dirty = true
     }
-    const ro = new ResizeObserver(resize)
+    const ro = new ResizeObserver(() => {
+      resize()
+      collectAnchors()
+      measureAvoid()
+    })
     ro.observe(el)
     resize()
+    measureAvoid()
 
     // --- loop
     let visible = true

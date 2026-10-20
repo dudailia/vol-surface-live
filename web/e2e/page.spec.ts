@@ -105,6 +105,30 @@ test.describe('front page', () => {
     await page.keyboard.press('Enter')
   })
 
+  test('3D axis labels never sit under the hero text', async ({ page }) => {
+    for (const width of [1024, 1440]) {
+      await page.setViewportSize({ width, height: Math.round(width * 0.62) })
+      await page.goto('/')
+      await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 15_000 })
+      // Sample the slow sway a few times; a visible label must clear every heading, paragraph and legend.
+      for (let i = 0; i < 4; i++) {
+        const overlaps = await page.evaluate(() => {
+          const hero = document.querySelector('section[aria-labelledby="hero-title"]')!
+          const blocks = [...hero.querySelectorAll('h1, p, [data-avoid]')].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0)
+          return [...hero.querySelectorAll<HTMLElement>('[data-anchor]')]
+            .filter((a) => a.style.opacity !== '0' && a.firstElementChild instanceof HTMLElement && a.firstElementChild.offsetWidth > 0)
+            .filter((a) => {
+              const r = a.firstElementChild!.getBoundingClientRect()
+              return blocks.some((b) => r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top)
+            })
+            .map((a) => a.textContent)
+        })
+        expect(overlaps, `width ${width}`).toEqual([])
+        await page.waitForTimeout(700)
+      }
+    }
+  })
+
   test('model toggle: eSSVI and SSVI both selectable, comparison tables present', async ({ page }) => {
     const errors = watchErrors(page)
     await page.goto('/')

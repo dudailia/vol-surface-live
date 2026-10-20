@@ -46,6 +46,7 @@ export function Hero() {
   const [tip, setTip] = useState<{ q: CanvasQuote; x: number; y: number } | null>(null)
   const canvas = useRef<CanvasHandle>(null)
   const labels = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef<HTMLElement>(null)
   const capture = useSyncExternalStore(
     () => () => {},
     () => new URLSearchParams(window.location.search).has('capture'),
@@ -137,7 +138,7 @@ export function Hero() {
       <h1 id="hero-title" className={`mt-6 text-display lg:mt-10 ${capture ? 'max-w-[24ch]' : 'max-w-[16ch]'}`}>
         {currency === 'BTC' ? 'Bitcoin' : 'Ether'} implied volatility, live from Deribit
       </h1>
-      <p className={`mt-5 text-small sm:text-body ${capture ? 'max-w-[44rem]' : 'max-w-[34rem] lg:max-w-[29rem] 2xl:max-w-[34rem]'}`}>
+      <p className={`mt-5 text-small sm:text-body ${capture ? 'max-w-[44rem]' : 'max-w-[34rem] lg:max-w-[27rem] xl:max-w-[29rem] 2xl:max-w-[34rem]'}`}>
         {t30 && (
           <>
             Thirty-day at-the-money vol is <Num value={t30.atm} format={(x) => `${fixed(x)}%`} />.{' '}
@@ -157,7 +158,7 @@ export function Hero() {
           </>
         )}
       </p>
-      <p className="mt-3 max-w-[34rem] text-note text-graphite">
+      <p className="mt-3 max-w-[34rem] text-note text-graphite lg:max-w-[27rem] xl:max-w-[34rem]">
         {history ? (
           <>
             Showing the fitted surface at {utcStamp(history.ts)}.{' '}
@@ -179,7 +180,7 @@ export function Hero() {
         )}
       </p>
       {sel && bundle.essvi && !history && (
-        <p className="mt-2 max-w-[34rem] text-note text-graphite">
+        <p className="mt-2 max-w-[34rem] text-note text-graphite lg:max-w-[27rem] xl:max-w-[34rem]">
           Fitted with {MODEL_NAME[model]}.{' '}
           {model === sel.selected ? 'It' : `${MODEL_NAME[sel.selected]}, the default,`} had the lower error on held-out quotes
           over the last {sel.n === 1 ? 'snapshot' : `${sel.n} snapshots`}: <span className="num">{fixed(sel.essvi, 2)}</span> vol
@@ -190,7 +191,7 @@ export function Hero() {
   )
 
   return (
-    <section aria-labelledby="hero-title" className="relative">
+    <section ref={sectionRef} aria-labelledby="hero-title" className="relative">
       {/* Below 1024px the text sits above the figure; from 1024px it floats over the sky of a
           full-height stage, and the surface takes the right of the screen. */}
       <div className="lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-0 lg:z-10">
@@ -205,7 +206,7 @@ export function Hero() {
           className={
             capture
               ? 'absolute inset-x-0 bottom-[9%] top-[30%]'
-              : 'relative aspect-[1/1] w-full sm:aspect-[16/11] lg:absolute lg:top-[19%] lg:bottom-[13%] lg:left-[38%] lg:right-[1%] lg:aspect-auto lg:w-auto 2xl:left-[40%]'
+              : 'relative aspect-[1/1] w-full sm:aspect-[16/11] lg:absolute lg:top-[19%] lg:bottom-[13%] lg:left-[42%] lg:right-[1%] lg:aspect-auto lg:w-auto xl:left-[38%] 2xl:left-[40%]'
           }
         >
           {/* Poster: the first paint, and the whole figure when WebGL is unavailable. */}
@@ -261,6 +262,7 @@ export function Hero() {
                 onFail={onFail}
                 onHover={onHover}
                 labels={labels}
+                avoid={sectionRef}
               />
             </div>
           )}
@@ -300,12 +302,12 @@ export function Hero() {
         </div>
         <div className={capture ? 'page absolute inset-x-0 bottom-6 z-10' : 'page relative z-10 mt-4 lg:absolute lg:inset-x-0 lg:bottom-6 lg:mt-0'}>
           <figcaption id="hero-caption" className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-note text-graphite">
-            <span className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <span data-avoid className="flex flex-wrap items-center gap-x-5 gap-y-2">
               <Legend />
               {failed && <span>{failed}; showing a still image.</span>}
             </span>
             {!failed && !capture && (
-              <span className="flex flex-wrap items-center gap-2">
+              <span data-avoid className="flex flex-wrap items-center gap-2">
                 {bundle.essvi && (
                   <span className="inline-flex items-center gap-2">
                     <span aria-hidden="true">Fit</span>
@@ -366,7 +368,11 @@ function Label({
 }) {
   const shift = align === 'right' ? '-100%' : align === 'center' ? '-50%' : '0'
   return (
-    <div data-anchor={at.join(',')} data-align={align} className={`absolute left-0 top-0 will-change-transform ${dense ? 'max-sm:hidden' : ''}`}>
+    <div
+      data-anchor={at.join(',')}
+      data-align={align}
+      className={`absolute left-0 top-0 transition-opacity duration-[var(--duration-micro)] will-change-transform ${dense ? 'max-sm:hidden' : ''}`}
+    >
       <div
         className="whitespace-nowrap"
         style={{ transform: `translate(${shift}, -50%)`, paddingRight: align === 'right' ? 8 : 0, paddingLeft: align === 'left' ? 8 : 0 }}
