@@ -5,6 +5,7 @@ import { cacheLife } from 'next/cache'
 import { z } from 'zod'
 import { bundleSchema, type Bundle } from './generated/bundle'
 import { reportSchema, type Report } from './generated/report'
+import { vrpSchema, type Vrp } from './generated/vrp'
 
 /**
  * Where the data comes from:
@@ -106,6 +107,16 @@ async function fetchLatest(): Promise<Latest> {
   return out
 }
 
+/** Implied against realized vol: the worker's hourly file, else the archive's daily copy. */
+export async function getVrp(): Promise<Vrp | null> {
+  'use cache'
+  cacheLife({ stale: 1800, revalidate: 1800, expire: 86400 })
+  return (
+    parse(vrpSchema, await getJSON(WORKER_URL, 'vrp.json', true), 'vrp') ??
+    parse(vrpSchema, await getJSON(BLOB_BASE_URL, 'vrp.json'), 'vrp archive')
+  )
+}
+
 export async function getHistoryIndex(): Promise<HistoryIndex | null> {
   'use cache'
   cacheLife({ stale: 300, revalidate: 300, expire: 86400 })
@@ -141,4 +152,4 @@ export function blobUrl(rel: string): string | null {
   return BLOB_BASE_URL && /^https?:/.test(BLOB_BASE_URL) ? `${BLOB_BASE_URL.replace(/\/$/, '')}/${rel}` : null
 }
 
-export type { Bundle, Report }
+export type { Bundle, Report, Vrp }

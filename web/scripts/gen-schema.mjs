@@ -18,6 +18,7 @@ mkdirSync('lib/generated', { recursive: true })
 for (const [file, name, type] of [
   ['bundle', 'bundleSchema', 'Bundle'],
   ['report', 'reportSchema', 'Report'],
+  ['vrp', 'vrpSchema', 'Vrp'],
 ]) {
   const schema = JSON.parse(readFileSync(`../schema/${file}.schema.json`, 'utf8'))
   const code = jsonSchemaToZod(deref(schema, schema.$defs ?? {}), {

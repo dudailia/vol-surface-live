@@ -129,6 +129,17 @@ test.describe('front page', () => {
     await expect(section).toContainText(/snapshots/)
   })
 
+  test('implied against realized: measured numbers, both panels, follows the currency', async ({ page }) => {
+    await page.goto('/')
+    const sec = page.locator('section[aria-labelledby="vrp-title"]')
+    await sec.scrollIntoViewIfNeeded()
+    await expect(sec).toContainText(/DVOL, Deribit.s 30-day implied volatility index for bitcoin, was [\d.]+/)
+    await expect(sec).toContainText(/on \d+% of \d+ days, by a median of [\d.]+ points/)
+    await expect(sec.locator('svg')).toHaveCount(2)
+    await page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'ETH' }).click()
+    await expect(sec).toContainText('index for ether')
+  })
+
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await ctx.newPage()

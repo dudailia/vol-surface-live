@@ -6,7 +6,9 @@ import { Methods } from '@/components/sections/Methods'
 import { WhatMoved } from '@/components/sections/WhatMoved'
 import { Hero } from '@/components/surface/Hero'
 import { allSurfaces, slimForClient } from '@/lib/bundle'
-import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime } from '@/lib/data'
+import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime, getVrp } from '@/lib/data'
+import { vrpView } from '@/lib/vrp'
+import { ImpliedRealized } from '@/components/sections/ImpliedRealized'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
 
@@ -16,12 +18,17 @@ const slim = (l: Awaited<ReturnType<typeof getLatestWithTime>>['bundles']) => ({
 })
 
 export default async function Page() {
-  const [{ bundles: latest, fetchedAt }, report, index, hourly] = await Promise.all([
+  const [{ bundles: latest, fetchedAt }, report, index, hourly, vrp] = await Promise.all([
     getLatestWithTime(),
     getLatestReport(),
     getHistoryIndex(),
     getHourly(),
+    getVrp(),
   ])
+  const vrpViews = {
+    ...(vrp && vrpView(vrp, 'BTC') ? { BTC: vrpView(vrp, 'BTC')! } : {}),
+    ...(vrp && vrpView(vrp, 'ETH') ? { ETH: vrpView(vrp, 'ETH')! } : {}),
+  }
   const surfaces = allSurfaces(latest)
   const frame = surfaces.length ? sharedFrame(surfaces) : { sqrtTMin: 0.1, sqrtTMax: 1, volLo: 0.2, volHi: 1 }
   const ts = latest.BTC?.ts ?? latest.ETH?.ts
@@ -33,6 +40,7 @@ export default async function Page() {
         <Hero />
         <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />
         <Explainer />
+        <ImpliedRealized views={vrpViews} />
         <History daily={index?.days ?? {}} hourly={hourly} />
         <Methods bundles={latest} />
       </main>

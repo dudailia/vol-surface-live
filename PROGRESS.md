@@ -202,3 +202,19 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 2. **Default model rule.** The default is the lower median hold-out error over the last hour. Keep it, or always show eSSVI now that it has won every snapshot measured so far?
 3. **Fly cost.** About $3 to $4 a month for an always-on machine and the 5 GB volume. Full five-minute raw data is kept 180 days on the volume (about 26 MB a day), and bundles 3 days. Fine as is?
 
+## Session 4 (from 02:17 UTC, 2026-10-20)
+
+### 02:35 UTC: A. Implied against realized (done)
+- **Worker** (`worker/src/volsurf/vrp.py`, hourly at :07, `/vrp.json`, a daily copy to Blob).
+  - Realized vol: annualized root mean square of six-hour log returns of Deribit's index over 30 days. A window counts only if the data reaches both of its ends and 90% of its samples are present.
+  - DVOL is read at 00:00 UTC each day.
+  - Our 30-day ATM vol comes from the stored hourly surfaces.
+  - Deribit's published historical volatility is included as a labelled reference; its window is not documented.
+  - Tests: an exact case, the coverage rule, a GBM estimate, and gap alignment.
+- **Page:** the section "Implied against realized" has two panels (levels; DVOL minus the realized vol of the following 30 days), hover, a legend, a screen-reader table and an e2e test.
+- **Measured, live at 00:00 UTC on 20 October:**
+  - BTC: DVOL 37.3, realized 24.4, our ATM 36.1.
+  - ETH: DVOL 51.9, realized 32.7, our ATM 49.0.
+  - From 21 Oct 2025 to 20 Sep 2026, DVOL exceeded the following 30 days' realized vol on 89% of 335 days for BTC (median 11.9 points) and 90% for ETH (median 17.7).
+- **Quality:** 17 e2e tests; mobile Lighthouse 94 to 95; desktop 100.
+

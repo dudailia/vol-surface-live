@@ -18,3 +18,21 @@ describe('client bundle', () => {
     })
   })
 })
+
+import vrpFixture from '../e2e/fixtures/worker/vrp.json'
+import { vrpSchema } from './generated/vrp'
+import { vrpView } from './vrp'
+
+describe('implied against realized view', () => {
+  const r = vrpSchema.parse(vrpFixture)
+  it('aligns series on one daily grid starting where comparisons exist', () => {
+    const v = vrpView(r, 'BTC')!
+    expect(v.days.length).toBe(v.dvol.length)
+    expect(v.realized.length).toBe(v.days.length)
+    expect(v.realized[0] != null || v.gapForward[0] != null).toBe(true)
+    // The forward gap is DVOL minus the realized vol of the following 30 days, so the last
+    // 30 days have none yet.
+    expect(v.gapForward.slice(-29).every((g) => g == null)).toBe(true)
+    expect(v.latest?.gap).toBeCloseTo((v.latest?.dvol ?? 0) - (v.latest?.realized_30d ?? 0), 2)
+  })
+})
