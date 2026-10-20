@@ -218,3 +218,18 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
   - From 21 Oct 2025 to 20 Sep 2026, DVOL exceeded the following 30 days' realized vol on 89% of 335 days for BTC (median 11.9 points) and 90% for ETH (median 17.7).
 - **Quality:** 17 e2e tests; mobile Lighthouse 94 to 95; desktop 100.
 
+### 02:55 UTC: B, C, D done; F under way
+- **B. Bitcoin against ether**: three panels on shared axes (ATM vol, 25-delta RR, 25-delta BF by expiry, days on a square-root scale), redrawn every snapshot from the fit on screen.
+  - Colours are BTC #6f7cf0 and ETH #3aa98a, validated with the dataviz script against the dark background. The pair's tritan separation is in the floor band, so BTC also has circles and solid lines and ETH squares and dashed lines, all directly labelled.
+  - A sentence of live numbers sits above the panels, with a screen-reader table and an e2e test.
+- **C. Local volatility**: a Dupire heatmap from the fit on screen, with hover readouts and a plain explanation.
+  - The grid limits are stated from the data: strikes 45% to 223% of the forward, first to last expiry. Blank cells are counted and explained (beyond three ATM standard deviations).
+  - e2e test.
+- **CI variance**: CI's Lighthouse mobile run on the implied-vs-realized commit failed (median 79, one run with 3.7 s of blocking time; DOM about 1,500 elements). The heavy below-the-fold charts now mount only near the viewport, with their space reserved per breakpoint so nothing shifts; text and screen-reader tables stay in the server HTML. CI has been green since.
+- **D. Paper**: Fig. 3 (DVOL against realized and the forward gap) plus sections on implied against realized, bitcoin against ether and local volatility. Facts come from `paper/data/vrp-2026-10-20T0223Z.json` and the 01:54 snapshot. "Ether dearer at every maturity" was checked against all nine expiries.
+- **F so far**:
+  - a "What this is" block under the hero (what the system does, the live hold-out result, an index of sections, with a test that every link resolves);
+  - a README Mermaid diagram;
+  - worker tests for `/vrp.json` (token, 404 before the first computation) and for the ATM series.
+- **Counts**: worker 65 tests; Vitest 13; Playwright 20. Lighthouse mobile 94 to 95, desktop 100.
+

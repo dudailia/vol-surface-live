@@ -96,7 +96,7 @@ At-the-money term structure √(θ/T); 25-delta risk reversal and butterfly per 
 
 ### Implied against realized
 
-Hourly, the worker reads a year of Deribit's index (every six hours), DVOL (Deribit's 30-day implied volatility index, daily) and Deribit's published historical volatility. Realized volatility is the annualized root mean square of six-hour log returns over 30 days, counted only when the data reaches both ends of the window. The page shows DVOL and our 30-day ATM vol against trailing realized vol, and DVOL minus the realized vol of the following 30 days: the volatility risk premium as it turned out. From 21 October 2025 to 20 September 2026, DVOL was above the following 30 days' realized vol on 89% of 335 days for bitcoin (median 11.9 points) and 90% for ether (median 17.7).
+Hourly, the worker reads a year of Deribit's index (every six hours), DVOL (Deribit's 30-day implied volatility index, daily) and Deribit's published historical volatility. Realized volatility is the annualized root mean square of six-hour log returns over 30 days, counted only when the data reaches both ends of the window. The page shows DVOL and our 30-day ATM vol against trailing realized vol, and DVOL minus the realized vol of the following 30 days: the volatility risk premium as it turned out. As computed at 02:22 UTC on 20 October 2026 (archived in `paper/data/vrp-2026-10-20T0223Z.json`): from 21 October 2025 to 20 September 2026, DVOL was above the following 30 days' realized vol on 89% of 335 days for bitcoin (median 11.9 points) and 90% for ether (median 17.7).
 
 ### Daily report
 
