@@ -71,6 +71,18 @@ test.describe('front page', () => {
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
   })
 
+  test('passes axe after scrolling, with every deferred chart mounted', async ({ page }) => {
+    await page.goto('/')
+    const H = await page.evaluate(() => document.documentElement.scrollHeight)
+    for (let y = 0; y < H; y += 500) {
+      await page.evaluate((yy) => window.scrollTo(0, yy), y)
+      await page.waitForTimeout(60)
+    }
+    await expect(page.locator('section[aria-labelledby="lv-title"] svg rect').first()).toBeAttached()
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()
+    expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([])
+  })
+
   test('keyboard: currency radio group, controls and slider all reachable with visible focus', async ({ page }) => {
     await page.goto('/')
     const radio = page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'BTC' })

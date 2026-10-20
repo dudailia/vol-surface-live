@@ -45,7 +45,8 @@ export async function shareImage() {
   const model = modelFor(b, null)
   const svg = posterSvg(surfaceOf(b, model), {
     width: 1200,
-    height: 760,
+    height: 640,
+    dot: 2.4,
     nu: 46,
     nt: 30,
     frame,
@@ -57,11 +58,11 @@ export async function shareImage() {
   return new ImageResponse(
     <div style={{ display: 'flex', width: '100%', height: '100%', background: NIGHT, position: 'relative' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={dataUri(svg)} width={1200} height={760} style={{ position: 'absolute', left: 0, top: 40 }} alt="" />
+      <img src={dataUri(svg)} width={1200} height={640} style={{ position: 'absolute', left: 0, top: 60 }} alt="" />
       <div style={{ position: 'absolute', left: 300, top: 34, width: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
         <div style={{ fontFamily: 'Source Serif 4', fontSize: 46, color: TEXT, lineHeight: 1.1 }}>{`${name} implied volatility`}</div>
         <div style={{ fontFamily: 'Source Code Pro', fontSize: 22, color: MUTED, marginTop: 14 }}>
-          {t30 ? `30-day ATM ${fixed(t30.atm)}%, 25-delta RR ${fixed(t30.rr25)}` : 'SSVI fit to Deribit quotes'}
+          {t30 ? `${model === 'essvi' ? 'eSSVI' : 'SSVI'} fit: 30-day ATM ${fixed(t30.atm)}%, 25-delta RR ${fixed(t30.rr25)}` : 'SSVI fit to Deribit quotes'}
         </div>
         <div style={{ fontFamily: 'Source Code Pro', fontSize: 18, color: MUTED, marginTop: 8 }}>
           {`Deribit quotes at ${utcStamp(b.ts)}`}

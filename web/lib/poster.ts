@@ -33,6 +33,8 @@ export type PosterOptions = {
   background?: string
   /** draw quotes and lines; off for the favicon */
   detail?: boolean
+  /** quote dot radius in pixels; defaults to a size for full-screen posters */
+  dot?: number
   /** axis labels, for the still view on phones and when WebGL is unavailable */
   labels?: { expiries: { T: number; label: string }[]; volTicks: number[]; fontSize: number }
 }
@@ -98,7 +100,7 @@ export function posterSvg(s: Surface, o: PosterOptions): string {
         `<path d="M${line.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}" fill="none" stroke="#e9e6df" stroke-opacity="0.28" stroke-width="1"/>`,
       )
     }
-    const r = Math.max(1.4, W / 300)
+    const r = o.dot ?? Math.max(1.4, W / 300)
     for (const q of o.quotes ?? []) {
       if (Math.abs(q.u) > SPREAD_SD) continue
       const [x, y] = project(toWorld(f, q.u, q.T, q.vol))
