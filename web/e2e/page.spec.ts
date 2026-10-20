@@ -249,6 +249,14 @@ test.describe('front page', () => {
     await expect(page.getByRole('link', { name: /Latest snapshot for both currencies, JSON/ })).toHaveAttribute('href', '/api/latest?full=1')
   })
 
+  test('methods: largest raw-quote failures listed per currency from the bundle', async ({ page }) => {
+    await page.goto('/')
+    const sec = page.locator('section[aria-labelledby="methods-title"]')
+    await expect(sec.getByRole('heading', { name: 'Raw-quote failures now' })).toBeAttached()
+    await expect(sec.getByRole('table', { name: /^BTC: / })).toBeAttached()
+    await expect(sec.getByRole('table', { name: /^ETH: / })).toBeAttached()
+  })
+
   test('share image and icon are real PNGs', async ({ request }) => {
     for (const path of ['/opengraph-image', '/icon']) {
       const res = await request.get(path)

@@ -165,6 +165,50 @@ export function Methods({
             </Block>
           )}
 
+          <Block title="Raw-quote failures now">
+            <p>
+              The largest static-arbitrage failures in the latest snapshot, in USD per option. &ldquo;Mid&rdquo; means the quotes are
+              inconsistent at mid prices; &ldquo;tradeable&rdquo; means the inequality is broken even buying at the ask and selling at
+              the bid, before fees.
+            </p>
+            {(['BTC', 'ETH'] as const).map((c) => {
+              const x = bundles[c]
+              if (!x) return null
+              const rows = x.arbitrage.violations.slice(0, 5)
+              return (
+                <div key={c} className="mt-4 overflow-x-auto">
+                  <table className="w-full text-note">
+                    <caption className="mb-2 text-left text-graphite">
+                      {c}: {rows.length === 0 ? 'no failures' : `${rows.length} largest of ${x.arbitrage.violations.length}`}
+                    </caption>
+                    {rows.length > 0 && (
+                      <>
+                        <thead>
+                          <tr className="border-b border-rule text-left text-graphite">
+                            <th scope="col" className="py-2 pr-3 font-normal">Check</th>
+                            <th scope="col" className="py-2 pr-3 font-normal">Level</th>
+                            <th scope="col" className="py-2 pr-3 font-normal">Instruments</th>
+                            <th scope="col" className="py-2 text-right font-normal">USD</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((v, i) => (
+                            <tr key={i} className="border-b border-rule/60 align-top">
+                              <td className="py-1.5 pr-3">{v.kind}</td>
+                              <td className="py-1.5 pr-3">{v.level}</td>
+                              <td className="num py-1.5 pr-3 text-meta">{v.instruments.map((n) => n.split('-').slice(1).join(' ')).join(', ')}</td>
+                              <td className="num py-1.5 text-right">{fixed(v.size_usd, 0)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </>
+                    )}
+                  </table>
+                </div>
+              )
+            })}
+          </Block>
+
           <Block title="Tests">
             <p>
               Black-76 prices and Greeks are checked against QuantLib and against finite differences. SSVI and extended SSVI are
