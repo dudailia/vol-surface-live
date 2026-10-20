@@ -64,3 +64,22 @@ def test_warm_start_reproduces_cold_fit(payload):
     _, _, cold = process("BTC", df, Settings())
     _, _, warm = process("BTC", df, Settings())
     assert warm.objective == pytest.approx(cold.objective, rel=1e-3, abs=1e-9)
+
+
+def test_holdout_window_is_seeded_from_stored_bundles(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from volsurf.pipeline import _holdout, seed_holdout
+    from volsurf.store import Store
+
+    st = Store(tmp_path)
+    now = datetime.now(UTC)
+    for i in range(15):
+        ts = now - timedelta(minutes=5 * (15 - i))
+        st.write_bundle("BTC", ts, {"ts": ts.isoformat(),
+                                    "selection": {"last_ssvi": 1.5 + i, "last_essvi": 1.2 + i}})
+    _holdout.clear()
+    seed_holdout(st, ("BTC", "ETH"))
+    got = list(_holdout["BTC"])
+    assert len(got) == 12 and got[-1] == (15.5, 15.2)
+    assert len(_holdout["ETH"]) == 0

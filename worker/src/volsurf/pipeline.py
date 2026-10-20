@@ -32,6 +32,21 @@ SELECTION_WINDOW = 12  # one hour of snapshots
 _holdout: dict[str, deque[tuple[float, float]]] = {}
 
 
+def seed_holdout(store: Store, currencies: tuple[str, ...]) -> None:
+    """Refill the recent hold-out errors from stored bundles, so a restart keeps the window."""
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    for c in currencies:
+        paths = [*store.bundle_paths(c, f"{now - timedelta(days=1):%Y-%m-%d}"),
+                 *store.bundle_paths(c, f"{now:%Y-%m-%d}")]
+        recent = _holdout.setdefault(c, deque(maxlen=SELECTION_WINDOW))
+        for p in paths[-SELECTION_WINDOW:]:
+            sel = store.read_bundle(p).get("selection")
+            if sel:
+                recent.append((float(sel["last_ssvi"]), float(sel["last_essvi"])))
+
+
 def _warm_start(currency: str, codes: list[str], T: np.ndarray,
                 ) -> tuple[np.ndarray, SSVIParams] | None:
     prev = _last_fit.get(currency)

@@ -24,7 +24,7 @@ from starlette.routing import Route
 from .blob import Publisher
 from .config import CURRENCIES, Settings
 from .deribit import DeribitClient
-from .pipeline import run_once
+from .pipeline import run_once, seed_holdout
 from .report import build_report, compact_surface, publish
 from .store import Store
 from .vrp import compute as compute_vrp
@@ -140,6 +140,8 @@ def build_app(settings: Settings, state: State) -> Starlette:
 def serve(settings: Settings) -> None:
     state = State()
     store = Store(settings.data_dir)
+    # Keep the model-selection window across restarts.
+    seed_holdout(store, CURRENCIES)
     # Seed health from what is already on disk, so a restart is not reported as stale.
     for c in CURRENCIES:
         b = store.latest_bundle(c)
