@@ -271,3 +271,15 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - **README** has a "What the page shows" section.
 - **Frame time while morphing** (GPU Chromium, 1440px): median 8.3 ms, p95 about 10 ms.
 - **Counts:** worker 67, Vitest 15, Playwright 23. CI green through "Methods tables fit a phone"; later runs in progress.
+
+### 04:45 UTC
+- **3D labels and the page text.** At 1440px the sway carried the expiry labels under the hero paragraphs. Now:
+  - a label that would overlap a heading, paragraph, the legend or the controls fades out (text blocks are measured on resize, not per frame);
+  - a label whose anchor is behind the surface fades out too, found by marching from the anchor towards the camera over the height field. Ether's 30 to 50% ticks no longer sit on top of the surface;
+  - from 1024 to 1279px the hero text is 27rem wide and the canvas starts at 42%, so the surface clears the text;
+  - an e2e test samples the sway at 1024 and 1440 and fails if any visible label overlaps the text.
+- **Font.** A cold first load showed Times New Roman for the whole visit: the serif was `font-display: optional`, as on iliaduda.com, where the next page picks it up from the cache. This is a one-page site, so it now swaps. Lighthouse CLS is 0.05 on mobile and at most 0.03 on desktop; scores are unchanged (mobile 93 to 97, desktop 100, every other category 100). The quality script now prints CLS.
+- **Worker version 7:** `/healthz` reports the newest saved daily report after a restart (it said `null` after every deploy).
+- **README:** opens with a screenshot of the live page (04:34 UTC) and three results, each tied to its archived file; the video recipe; test counts brought up to date.
+- **Video** re-recorded from the live page at 04:34 UTC: bitcoin, then the morph to ether.
+- **Counts:** worker 67, Vitest 15, Playwright 25. CI green through "Hide 3D labels the surface hides"; later runs in progress.
