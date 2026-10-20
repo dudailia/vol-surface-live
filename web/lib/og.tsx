@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
-import { posterQuotes, surfaceOf } from './bundle'
+import { allSurfaces, modelFor, posterQuotes, surfaceOf, tenorsOf } from './bundle'
 import { getLatest } from './data'
 import { fixed, utcStamp } from './format'
 import { sharedFrame } from './geometry'
@@ -41,17 +41,18 @@ export async function shareImage() {
       { ...OG_SIZE, fonts: await fonts() },
     )
   }
-  const frame = sharedFrame([latest.BTC, latest.ETH].filter((x) => x != null).map(surfaceOf))
-  const svg = posterSvg(surfaceOf(b), {
+  const frame = sharedFrame(allSurfaces(latest))
+  const model = modelFor(b, null)
+  const svg = posterSvg(surfaceOf(b, model), {
     width: 1200,
     height: 760,
     nu: 46,
     nt: 30,
     frame,
-    quotes: posterQuotes(b),
+    quotes: posterQuotes(b, model),
     expiries: b.expiries.map((e) => e.T),
   })
-  const t30 = b.tenors['30d']
+  const t30 = tenorsOf(b, model)['30d']
   const name = b.currency === 'BTC' ? 'Bitcoin' : 'Ether'
   return new ImageResponse(
     <div style={{ display: 'flex', width: '100%', height: '100%', background: NIGHT, position: 'relative' }}>
@@ -76,7 +77,7 @@ export async function iconImage(size: number) {
   const latest = await getLatest()
   const b = latest.BTC ?? latest.ETH
   const svg = b
-    ? posterSvg(surfaceOf(b), { width: size * 2, height: size * 2, nu: 16, nt: 12, detail: false })
+    ? posterSvg(surfaceOf(b, modelFor(b, null)), { width: size * 2, height: size * 2, nu: 16, nt: 12, detail: false })
     : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><rect width="2" height="2" fill="#a3adf5"/></svg>`
   return new ImageResponse(
     <div style={{ display: 'flex', width: '100%', height: '100%', background: NIGHT, borderRadius: size / 6, alignItems: 'center', justifyContent: 'center' }}>

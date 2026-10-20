@@ -9,19 +9,22 @@ import { useMemo, useState } from 'react'
 import { useLive } from '@/components/LiveProvider'
 import type { CompactSurface } from '@/lib/data'
 import { fixed, utcStamp } from '@/lib/format'
-import { smileStats, thetaCurve, type Surface } from '@/lib/ssvi'
+import { tenorsOf, type Model } from '@/lib/bundle'
+import { sliceAt, sliceStats, type Surface } from '@/lib/ssvi'
 
 type Entry = { ts: string; kind: 'daily' | 'hourly'; c: CompactSurface }
 
-function toSurface(c: CompactSurface): Surface {
-  return { T: c.expiries.map((e) => e.T), theta: c.expiries.map((e) => e.theta), params: c.ssvi }
+/** A saved surface in the model on screen; snapshots saved before eSSVI fall back to SSVI. */
+function toSurface(c: CompactSurface, model: Model): Surface {
+  const base: Surface = { T: c.expiries.map((e) => e.T), theta: c.expiries.map((e) => e.theta), params: c.ssvi }
+  return model === 'essvi' && c.essvi ? { ...base, theta: c.essvi.theta, rho: c.essvi.rho, psi: c.essvi.psi } : base
 }
 
-function atm30(c: CompactSurface): number | null {
-  const s = toSurface(c)
+function atm30(c: CompactSurface, model: Model): number | null {
+  const s = toSurface(c, model)
   const T = 30 / 365
   if (T < s.T[0] || T > s.T[s.T.length - 1]) return null
-  return smileStats(thetaCurve(s).value(T), T, s.params).atm
+  return sliceStats(sliceAt(s, T), T).atm
 }
 
 export function History({
@@ -31,7 +34,7 @@ export function History({
   daily: Record<string, CompactSurface[]>
   hourly: Record<string, CompactSurface[]>
 }) {
-  const { currency, bundle, history, setHistory } = useLive()
+  const { currency, bundle, history, setHistory, model } = useLive()
   const entries = useMemo<Entry[]>(() => {
     const byTs = new Map<string, Entry>()
     for (const c of daily[currency] ?? []) byTs.set(c.ts, { ts: c.ts, kind: 'daily', c })
@@ -54,15 +57,15 @@ export function History({
     setHistory({
       ts: e.ts,
       label: utcStamp(e.ts),
-      surface: toSurface(e.c),
+      surface: toSurface(e.c, model),
       expiries: e.c.expiries,
       indexPrice: e.c.index_price,
     })
   }
 
   const current = value >= n ? null : entries[value]
-  const liveAtm = bundle?.tenors['30d']?.atm ?? null
-  const shownAtm = current ? atm30(current.c) : liveAtm
+  const liveAtm = bundle ? (tenorsOf(bundle, model)['30d']?.atm ?? null) : null
+  const shownAtm = current ? atm30(current.c, model) : liveAtm
   const fill = n > 0 ? `${(value / n) * 100}%` : '100%'
 
   return (

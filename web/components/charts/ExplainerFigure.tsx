@@ -11,16 +11,16 @@ import { scaleLinear } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { useMemo, useState } from 'react'
 import type { Bundle } from '@/lib/generated/bundle'
-import { nearestExpiry, surfaceOf } from '@/lib/bundle'
+import { checksOf, fitsOf, localVolOf, MODEL_NAME, nearestExpiry, surfaceOf, type Model } from '@/lib/bundle'
 import { expiryLabel, fixed } from '@/lib/format'
 import { rampColor } from '@/lib/geometry'
-import { durrlemanG, impliedVol, totalVariance } from '@/lib/ssvi'
+import { sliceG, sliceOf, sliceW } from '@/lib/ssvi'
 import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks } from './kit'
 import { useWidth } from './useMeasure'
 
 export const STEPS = 7
 
-type Props = { bundle: Bundle; step: number }
+type Props = { bundle: Bundle; step: number; model: Model }
 
 const M = { top: 28, right: 20, bottom: 48, left: 52 }
 
@@ -43,7 +43,7 @@ function marketAtm(e: Bundle['expiries'][number]): number | null {
   return mid_iv[lo] + (mid_iv[hi] - mid_iv[lo]) * t
 }
 
-export function ExplainerFigure({ bundle, step }: Props) {
+export function ExplainerFigure({ bundle, step, model }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>(640)
   const height = width < 520 ? 250 : 400
   // Room for the caption under the chart, so it never spills over the steps below.
@@ -60,13 +60,13 @@ export function ExplainerFigure({ bundle, step }: Props) {
           exit={reduce ? undefined : { opacity: 0, filter: 'blur(2px)', transition: { duration: 0.12 } }}
           transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
         >
-          {step === 1 && <QuotesChart bundle={bundle} w={width} h={height} />}
-          {step === 2 && <VarianceChart bundle={bundle} w={width} h={height} fitted={false} />}
-          {step === 3 && <VarianceChart bundle={bundle} w={width} h={height} fitted />}
-          {step === 4 && <DensityChart bundle={bundle} w={width} h={height} />}
-          {step === 5 && <SkewChart bundle={bundle} w={width} h={height} />}
-          {step === 6 && <TermChart bundle={bundle} w={width} h={height} />}
-          {step === 7 && <LocalVolChart bundle={bundle} w={width} h={height} />}
+          {step === 1 && <QuotesChart bundle={bundle} model={model} w={width} h={height} />}
+          {step === 2 && <VarianceChart bundle={bundle} model={model} w={width} h={height} fitted={false} />}
+          {step === 3 && <VarianceChart bundle={bundle} model={model} w={width} h={height} fitted />}
+          {step === 4 && <DensityChart bundle={bundle} model={model} w={width} h={height} />}
+          {step === 5 && <SkewChart bundle={bundle} model={model} w={width} h={height} />}
+          {step === 6 && <TermChart bundle={bundle} model={model} w={width} h={height} />}
+          {step === 7 && <LocalVolChart bundle={bundle} model={model} w={width} h={height} />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -74,10 +74,10 @@ export function ExplainerFigure({ bundle, step }: Props) {
 }
 
 // 1. Implied vol for one expiry: bid-ask bars, mid dot, the fit as a thin ink line.
-function QuotesChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
+function QuotesChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: number; h: number }) {
   const e = nearestExpiry(bundle, 30)
   const i = bundle.expiries.indexOf(e)
-  const s = surfaceOf(bundle)
+  const s = surfaceOf(bundle, model)
   const q = e.quotes
   const [hover, setHover] = useState<number | null>(null)
   const x = scaleLinear().domain([Math.min(...q.k) - 0.02, Math.max(...q.k) + 0.02]).range([M.left, w - M.right])
@@ -87,7 +87,7 @@ function QuotesChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number })
   const ks = Array.from({ length: 80 }, (_, j) => x.domain()[0] + ((x.domain()[1] - x.domain()[0]) * j) / 79)
   const fit = d3line<number>()
     .x((k) => x(k))
-    .y((k) => y(impliedVol(k, s.theta[i], s.T[i], s.params) * 100))(ks)
+    .y((k) => y(Math.sqrt(sliceW(k, sliceOf(s, i)) / s.T[i]) * 100))(ks)
   const strikeTicks = niceTicks(x.domain()[0], x.domain()[1], 5)
   return (
     <figure className="h-full" aria-labelledby="fig1-cap">
@@ -112,7 +112,7 @@ function QuotesChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number })
         </div>
       )}
       <figcaption id="fig1-cap" className="mt-1 text-note text-graphite">
-        {expiryLabel(e.code)} expiry, {e.n} quotes. Bars run from bid to ask; dots are mids; the line is the SSVI fit.
+        {expiryLabel(e.code)} expiry, {e.n} quotes. Bars run from bid to ask; dots are mids; the line is the {MODEL_NAME[model]} fit.
       </figcaption>
       <DataTable
         caption={`Quotes for the ${expiryLabel(e.code)} expiry`}
@@ -124,15 +124,15 @@ function QuotesChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number })
 }
 
 // 2 and 3. Total variance against log-moneyness for every expiry; then the SSVI fit.
-function VarianceChart({ bundle, w, h, fitted }: { bundle: Bundle; w: number; h: number; fitted: boolean }) {
-  const s = surfaceOf(bundle)
+function VarianceChart({ bundle, model, w, h, fitted }: { bundle: Bundle; model: Model; w: number; h: number; fitted: boolean }) {
+  const s = surfaceOf(bundle, model)
   const ex = bundle.expiries
   const kLo = -0.6
   const kHi = 0.5
   const x = scaleLinear().domain([kLo, kHi]).range([M.left, w - M.right])
   const wMax = Math.max(
     ...ex.flatMap((e) => e.quotes.k.map((k, j) => (k >= kLo && k <= kHi ? e.quotes.mid_iv[j] ** 2 * e.T : 0))),
-    ...ex.map((_, i) => Math.max(totalVariance(kLo, s.theta[i], s.params), totalVariance(kHi, s.theta[i], s.params))),
+    ...ex.map((_, i) => Math.max(sliceW(kLo, sliceOf(s, i)), sliceW(kHi, sliceOf(s, i)))),
   )
   const y = scaleLinear().domain([0, wMax * 1.05]).range([h - M.bottom, M.top])
   const ks = Array.from({ length: 90 }, (_, j) => kLo + ((kHi - kLo) * j) / 89)
@@ -147,7 +147,7 @@ function VarianceChart({ bundle, w, h, fitted }: { bundle: Bundle; w: number; h:
           const pts = e.quotes.k.map((k, j) => [k, e.quotes.mid_iv[j] ** 2 * e.T] as const).filter(([k]) => k >= kLo && k <= kHi)
           const d = d3line<number>()
             .x((k) => x(k))
-            .y((k) => y(totalVariance(k, s.theta[i], s.params)))(ks)
+            .y((k) => y(sliceW(k, sliceOf(s, i))))(ks)
           return (
             <g key={e.code}>
               {fitted && d && <DrawPath d={d} stroke={color} width={1.75} delay={0.05 * i} />}
@@ -159,31 +159,33 @@ function VarianceChart({ bundle, w, h, fitted }: { bundle: Bundle; w: number; h:
         })}
         {/* Direct labels for the first and last expiry; the shade runs between them. */}
         {[0, last].map((i) => (
-          <text key={i} x={x(kHi) - 4} y={y(totalVariance(kHi, s.theta[i], s.params)) - 6} textAnchor="end" className="num text-[11px]" fill={sliceColor(i, ex.length)}>
+          <text key={i} x={x(kHi) - 4} y={y(sliceW(kHi, sliceOf(s, i))) - 6} textAnchor="end" className="num text-[11px]" fill={sliceColor(i, ex.length)}>
             {expiryLabel(ex[i].code)}
           </text>
         ))}
       </svg>
       <figcaption id="fig2-cap" className="mt-1 text-note text-graphite">
         {fitted
-          ? `SSVI fit with ρ ${fixed(bundle.ssvi.rho, 2)}, η ${fixed(bundle.ssvi.eta, 2)}, γ ${fixed(bundle.ssvi.gamma, 2)}. Darker lines are nearer expiries.`
+          ? model === 'essvi' && bundle.essvi
+            ? `eSSVI fit, ρ from ${fixed(Math.min(...bundle.essvi.rho), 2)} to ${fixed(Math.max(...bundle.essvi.rho), 2)} across expiries. Darker lines are nearer expiries.`
+            : `SSVI fit with ρ ${fixed(bundle.ssvi.rho, 2)}, η ${fixed(bundle.ssvi.eta, 2)}, γ ${fixed(bundle.ssvi.gamma, 2)}. Darker lines are nearer expiries.`
           : `Mid quotes for all ${ex.length} expiries. Darker dots are nearer expiries; later expiries sit higher.`}
       </figcaption>
       <DataTable
         caption="Fitted ATM total variance by expiry"
         head={['Expiry', 'Years', 'θ (ATM total variance)', 'RMSE, vol points']}
-        rows={ex.map((e) => [expiryLabel(e.code), fixed(e.T, 3), fixed(e.theta, 4), fixed(e.rmse_vol_pts, 2)])}
+        rows={fitsOf(bundle, model).map((e, i) => [expiryLabel(e.code), fixed(e.T, 3), fixed(s.theta[i], 4), fixed(e.rmse_vol_pts, 2)])}
       />
     </figure>
   )
 }
 
 // 4. Durrleman's g(k) for each fitted slice: positive everywhere means no butterfly arbitrage.
-function DensityChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
-  const s = surfaceOf(bundle)
+function DensityChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: number; h: number }) {
+  const s = surfaceOf(bundle, model)
   const ex = bundle.expiries
   const ks = Array.from({ length: 120 }, (_, j) => -1.2 + (2.4 * j) / 119)
-  const gs = ex.map((_, i) => ks.map((k) => durrlemanG(k, s.theta[i], s.params)))
+  const gs = ex.map((_, i) => ks.map((k) => sliceG(k, sliceOf(s, i))))
   const gMax = Math.max(...gs.flat())
   const x = scaleLinear().domain([-1.2, 1.2]).range([M.left, w - M.right])
   const y = scaleLinear().domain([-0.1, Math.min(gMax, 1.4)]).range([h - M.bottom, M.top])
@@ -204,7 +206,7 @@ function DensityChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }
         })}
       </svg>
       <figcaption id="fig4-cap" className="mt-1 text-note text-graphite">
-        Lowest g(k) on the fitted slices: <span className="num">{fixed(bundle.ssvi.min_g, 3)}</span>. Raw quotes checked at the same time:{' '}
+        Lowest g(k) on the {MODEL_NAME[model]} surface: <span className="num">{fixed(checksOf(bundle, model).min_g, 3)}</span>. Raw quotes checked at the same time:{' '}
         <span className="num">{Object.values(bundle.arbitrage.counts.mid ?? {}).reduce((a, b) => a + b, 0)}</span> failures at mid,{' '}
         <span className="num">{Object.values(bundle.arbitrage.counts.tradeable ?? {}).reduce((a, b) => a + b, 0)}</span> tradeable.
       </figcaption>
@@ -213,8 +215,8 @@ function DensityChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }
 }
 
 // 5. 25-delta risk reversal and butterfly by expiry, as two panels (never one dual axis).
-function SkewChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
-  const ex = bundle.expiries
+function SkewChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: number; h: number }) {
+  const ex = fitsOf(bundle, model)
   const stacked = w < 560
   const pw = stacked ? w : (w - 24) / 2
   const ph = stacked ? (h - 24) / 2 : h
@@ -226,7 +228,7 @@ function SkewChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
     const m = { ...M, bottom: 40, top: 24 }
     const x = scaleLinear().domain([0, Math.sqrt(ex[ex.length - 1].T * 365)]).range([m.left, pw - m.right])
     const y = scaleLinear().domain([lo - pad, hi + pad]).range([ph - m.bottom, m.top])
-    const d = d3line<Bundle['expiries'][number]>()
+    const d = d3line<(typeof ex)[number]>()
       .x((e) => x(Math.sqrt(e.T * 365)))
       .y((e) => y(e.stats[key]))(ex)
     const tdays = [7, 30, 90, 180, 365].filter((t) => Math.sqrt(t) <= x.domain()[1])
@@ -261,16 +263,16 @@ function SkewChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
 }
 
 // 6. ATM term structure: fitted √(θ/T) as a line, market ATM (interpolated mids) as dots.
-function TermChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
-  const ex = bundle.expiries
+function TermChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: number; h: number }) {
+  const ex = fitsOf(bundle, model)
   const [hover, setHover] = useState<number | null>(null)
-  const mk = ex.map(marketAtm)
+  const mk = bundle.expiries.map(marketAtm)
   const vals = [...ex.map((e) => e.stats.atm), ...mk.filter((v): v is number => v != null).map((v) => v * 100)]
   const lo = Math.floor(Math.min(...vals) / 5) * 5
   const hi = Math.ceil(Math.max(...vals) / 5) * 5
   const x = scaleLinear().domain([0, Math.sqrt(ex[ex.length - 1].T * 365) * 1.03]).range([M.left, w - M.right])
   const y = scaleLinear().domain([lo, hi]).range([h - M.bottom, M.top])
-  const d = d3line<Bundle['expiries'][number]>()
+  const d = d3line<(typeof ex)[number]>()
     .x((e) => x(Math.sqrt(e.T * 365)))
     .y((e) => y(e.stats.atm))(ex)
   const tdays = [7, 30, 90, 180, 365].filter((t) => Math.sqrt(t) <= x.domain()[1])
@@ -300,7 +302,7 @@ function TermChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
         </div>
       )}
       <figcaption id="fig6-cap" className="mt-1 text-note text-graphite">
-        Line: fitted ATM vol. Dots: market ATM vol, interpolated from the two quotes either side of the forward.
+        Line: {MODEL_NAME[model]} ATM vol. Dots: market ATM vol, interpolated from the two quotes either side of the forward.
       </figcaption>
       <DataTable
         caption="ATM vol by expiry"
@@ -312,8 +314,8 @@ function TermChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
 }
 
 // 7. Dupire local vol as a heatmap on the (k, T) grid the worker computes.
-function LocalVolChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number }) {
-  const lv = bundle.local_vol
+function LocalVolChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: number; h: number }) {
+  const lv = localVolOf(bundle, model)
   const all = lv.vol.flat().filter((v): v is number => v != null)
   const lo = Math.min(...all)
   const hi = Math.max(...all)
@@ -357,7 +359,7 @@ function LocalVolChart({ bundle, w, h }: { bundle: Bundle; w: number; h: number 
         <text x={w - M.right - 34} y={h - M.bottom} textAnchor="end" className="num fill-graphite text-[11px]">{fixed(lo, 0)}%</text>
       </svg>
       <figcaption id="fig7-cap" className="mt-1 text-note text-graphite">
-        Dupire local vol from the SSVI surface, {fixed(lo, 0)}% to {fixed(hi, 0)}%. Cells further than 3 ATM standard deviations out are left blank.
+        Dupire local vol from the {MODEL_NAME[model]} surface, {fixed(lo, 0)}% to {fixed(hi, 0)}%. Cells further than 3 ATM standard deviations out are left blank.
       </figcaption>
     </figure>
   )

@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib'
 import { cacheLife } from 'next/cache'
-import { posterQuotes, surfaceOf } from '@/lib/bundle'
+import { allSurfaces, modelFor, posterQuotes, surfaceOf } from '@/lib/bundle'
 import { getLatest } from '@/lib/data'
 import { sharedFrame } from '@/lib/geometry'
 import { posterSvg } from '@/lib/poster'
@@ -25,20 +25,21 @@ async function render(cur: string, shape: string): Promise<string | null> {
   const b = cur === 'BTC' || cur === 'ETH' ? latest[cur] : undefined
   const size = SHAPES[shape.replace(/\.svg$/, '') as keyof typeof SHAPES]
   if (!b || !size) return null
-  const surfaces = [latest.BTC, latest.ETH].filter((x) => x != null).map(surfaceOf)
+  const surfaces = allSurfaces(latest)
+  const model = modelFor(b, null)
   const frame = sharedFrame(surfaces)
   const volTicks: number[] = []
   for (let v = Math.ceil(frame.volLo * 10) / 10 + 0.2; v <= frame.volHi + 1e-9; v += 0.2) volTicks.push(v)
   const ex = b.expiries
   const picks = [ex[0], ex[Math.floor(ex.length / 2)], ex[ex.length - 1]]
-  return posterSvg(surfaceOf(b), {
+  return posterSvg(surfaceOf(b, model), {
     labels: { volTicks, fontSize: shape.startsWith('tall') ? 30 : 22, expiries: picks.map((e) => ({ T: e.T, label: shortCode(e.code) })) },
     width: size[0],
     height: size[1],
     nu: shape.startsWith('tall') ? 28 : 34,
     nt: shape.startsWith('tall') ? 18 : 22,
     frame,
-    quotes: posterQuotes(b),
+    quotes: posterQuotes(b, model),
     expiries: b.expiries.map((e) => e.T),
   })
 }

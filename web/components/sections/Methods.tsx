@@ -1,5 +1,5 @@
 import type { Bundle } from '@/lib/generated/bundle'
-import { fixed, utcStamp } from '@/lib/format'
+import { expiryLabel, fixed, utcStamp } from '@/lib/format'
 import { REPO_PUBLIC, REPO_URL } from '@/lib/site'
 
 /** Methods and limitations. Rules and counts come from the latest bundles, not from copy. */
@@ -83,7 +83,7 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
               w(k, θ) = θ/2 · [1 + ρφk + √((φk + ρ)² + 1 − ρ²)],&nbsp;&nbsp;φ(θ) = η θ<sup>−γ</sup>(1 + θ)<sup>γ−1</sup>
             </p>
             <p>
-              with one θ per expiry and ρ, η, γ shared. The fit keeps θ from falling with expiry (no calendar arbitrage) and
+              with one θ per expiry and ρ, η, γ shared. The SSVI fit keeps θ from falling with expiry (no calendar arbitrage) and
               imposes η(1&nbsp;+&nbsp;|ρ|)&nbsp;≤&nbsp;2 with 0&nbsp;&lt;&nbsp;γ&nbsp;≤&nbsp;½, which rules out butterfly
               arbitrage. After each fit the surface is checked on a grid: the lowest Durrleman <i>g</i>(<i>k</i>) in the
               latest BTC fit is <span className="num">{fixed(b.ssvi.min_g, 3)}</span>. Errors are measured in implied vol
@@ -97,12 +97,88 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
             </p>
           </Block>
 
+          {b.essvi && b.selection && (
+            <Block title="Two models">
+              <p>
+                Extended SSVI (Hendriks and Martini, 2019) keeps the SSVI form for each expiry but gives each its own skew ρ and
+                slope ψ&nbsp;=&nbsp;θφ. The fit keeps θ and ψ from falling with expiry and holds{' '}
+                <span className="whitespace-nowrap">|Δ(ρψ)| ≤ Δψ</span> between neighbouring expiries, so neither wing&rsquo;s slope falls with maturity and expiries
+                do not cross; each expiry also meets the butterfly bounds{' '}
+                <span className="whitespace-nowrap">ψ(1 + |ρ|) &lt; 4</span> and{' '}
+                <span className="whitespace-nowrap">
+                  ψ<sup>2</sup>(1 + |ρ|) ≤ 4θ
+                </span>
+                . Between expiries ψ and ρψ are interpolated linearly in θ, and every fit
+                is checked on a grid.
+              </p>
+              <p className="mt-4">
+                eSSVI contains SSVI, so on the quotes it is fitted to it can only do as well or better. To choose between them
+                fairly, both are refitted every five minutes with every fifth quote held out, and the page defaults to the model
+                with the lower median error on those held-out quotes over the last hour. Latest BTC: eSSVI{' '}
+                <span className="num">{fixed(b.selection.essvi, 2)}</span>, SSVI <span className="num">{fixed(b.selection.ssvi, 2)}</span>{' '}
+                vol points over <span className="num">{b.selection.n}</span> {b.selection.n === 1 ? 'snapshot' : 'snapshots'}.
+              </p>
+              {(['BTC', 'ETH'] as const).map((c) => {
+                const x = bundles[c]
+                if (!x?.essvi) return null
+                return (
+                  <div key={c} className="mt-6 overflow-x-auto">
+                    <table className="w-full min-w-[28rem] text-note">
+                      <caption className="mb-2 text-left text-graphite">
+                        {c}, fit error by expiry (RMSE, vol points) and share of quotes inside bid-ask
+                      </caption>
+                      <thead>
+                        <tr className="border-b border-rule text-left text-graphite">
+                          <th scope="col" className="py-2 pr-4 font-normal">Expiry</th>
+                          <th scope="col" className="py-2 pl-4 text-right font-normal">SSVI</th>
+                          <th scope="col" className="py-2 pl-4 text-right font-normal">eSSVI</th>
+                          <th scope="col" className="py-2 pl-4 text-right font-normal">inside, SSVI</th>
+                          <th scope="col" className="py-2 pl-4 text-right font-normal">inside, eSSVI</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {x.expiries.map((e, i) => {
+                          const f = x.essvi!.expiries[i]
+                          const pct = (v: number | null) => (v == null ? 'n/a' : `${Math.round(v * 100)}%`)
+                          return (
+                            <tr key={e.code} className="border-b border-rule/60">
+                              <td className="py-1.5 pr-4">{expiryLabel(e.code)}</td>
+                              <td className="num py-1.5 pl-4 text-right">{fixed(e.rmse_vol_pts, 2)}</td>
+                              <td className="num py-1.5 pl-4 text-right">{fixed(f.rmse_vol_pts, 2)}</td>
+                              <td className="num py-1.5 pl-4 text-right">{pct(e.inside_spread)}</td>
+                              <td className="num py-1.5 pl-4 text-right">{pct(f.inside_spread)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              })}
+            </Block>
+          )}
+
           <Block title="Limitations">
             <ul className="list-disc space-y-2 pl-5 marker:text-graphite">
               <li>Deribit quotes only. This is a description of one venue&rsquo;s order book, not a trading signal.</li>
               <li>
-                One ρ for every expiry cannot follow skew that changes with maturity. The put wing of some expiries fits worse
-                than the money; the per-expiry error is published in every snapshot. Extended SSVI would fix this.
+                {b.essvi ? (
+                  <>
+                    SSVI&rsquo;s single ρ cannot follow skew that changes with maturity; eSSVI can. Neither reproduces every quote:
+                    the worst eSSVI expiry in the latest BTC snapshot is{' '}
+                    {(() => {
+                      const w = b.essvi.expiries.reduce((a, e) => (e.rmse_vol_pts > a.rmse_vol_pts ? e : a))
+                      return (
+                        <>
+                          {expiryLabel(w.code)} at <span className="num">{fixed(w.rmse_vol_pts, 2)}</span> vol points,
+                        </>
+                      )
+                    })()}{' '}
+                    and per-expiry errors for both models are published in every snapshot.
+                  </>
+                ) : (
+                  'One ρ for every expiry cannot follow skew that changes with maturity; the per-expiry error is published in every snapshot.'
+                )}
               </li>
               <li>
                 &ldquo;Tradeable at quoted prices&rdquo; ignores fees, margin and size. A flagged quote is an inconsistency, not

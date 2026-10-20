@@ -33,9 +33,10 @@ test.describe('front page', () => {
       .replace(/<[^>]+>/g, '')
       .replace(/\s+/g, ' ')
     const m = /Thirty-day at-the-money vol is ([\d.]+)%\. 25\u2011delta (puts|calls) trade ([\d.]+) vol points/.exec(text)
-    expect(m, 'hero sentence with single numbers').not.toBeNull()
-    // A doubled number reads like "35.7%35.7%" or "3.73.7".
-    expect(text).not.toMatch(/(\d+\.\d)%?\1/)
+    expect(m, 'hero sentence').not.toBeNull()
+    // Each number exactly once: a doubled one would read "35.735.7" inside the capture.
+    expect(m![1]).toMatch(/^\d+\.\d$/)
+    expect(m![3]).toMatch(/^\d+\.\d$/)
     const ts = /<time dateTime="([^"]+)"/.exec(html)?.[1]
     expect(ts).toBeTruthy()
     const old = Date.now() - Date.parse(ts!) > 15 * 60_000
@@ -72,15 +73,38 @@ test.describe('front page', () => {
 
   test('keyboard: currency radio group, controls and slider all reachable with visible focus', async ({ page }) => {
     await page.goto('/')
-    const radio = page.getByRole('radio', { name: 'BTC' })
+    const radio = page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'BTC' })
     await radio.focus()
     await page.keyboard.press('ArrowRight')
-    await expect(page.getByRole('radio', { name: 'ETH' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'ETH' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Ether')
-    const outline = await page.getByRole('radio', { name: 'ETH' }).evaluate((el) => getComputedStyle(el).outlineStyle)
+    const outline = await page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'ETH' }).evaluate((el) => getComputedStyle(el).outlineStyle)
     expect(outline).not.toBe('none')
+    await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 15_000 })
     await page.getByRole('button', { name: 'Reset view' }).focus()
     await page.keyboard.press('Enter')
+  })
+
+  test('model toggle: eSSVI and SSVI both selectable, comparison tables present', async ({ page }) => {
+    const errors = watchErrors(page)
+    await page.goto('/')
+    const group = page.getByRole('radiogroup', { name: 'Fit' })
+    await expect(group).toBeVisible()
+    const essvi = group.getByRole('radio', { name: 'eSSVI', exact: true })
+    const ssvi = group.getByRole('radio', { name: 'SSVI', exact: true })
+    const before = await page.getByText(/Thirty-day at-the-money vol is/).innerText()
+    const selected = (await essvi.getAttribute('aria-checked')) === 'true' ? essvi : ssvi
+    const other = selected === essvi ? ssvi : essvi
+    await other.click()
+    await expect(other).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText(/Fitted with (SSVI|eSSVI)\./)).toBeVisible()
+    // Keyboard: arrows move the selection back.
+    await other.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(selected).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText(/Thirty-day at-the-money vol is/)).toHaveText(before)
+    await expect(page.getByRole('table', { name: /fit error by expiry/ }).first()).toBeAttached()
+    expect(errors).toEqual([])
   })
 
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {

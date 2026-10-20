@@ -8,7 +8,7 @@
  * nearly all quotes sit; quotes further out are not drawn in 3D (the charts show them).
  */
 
-import { thetaCurve, totalVariance, type Surface } from './ssvi'
+import { sliceAt, sliceW, thetaCurve, type Surface } from './ssvi'
 
 export const SPREAD_SD = 2.6
 export const HALF_WIDTH = 1.45
@@ -88,11 +88,11 @@ export function surfaceGrid(s: Surface, nu: number, nt: number, f: Frame): Grid 
     const sq = t0 + ((t1 - t0) * j) / (nt - 1)
     const T = Math.min(Math.max(sq * sq, s.T[0]), s.T[s.T.length - 1])
     Ts.push(T)
-    const theta = curve.value(T)
-    const half = SPREAD_SD * Math.sqrt(theta)
+    const sl = sliceAt(s, T, curve)
+    const half = SPREAD_SD * Math.sqrt(sl.theta)
     for (let i = 0; i < nu; i++) {
       const u = (-1 + (2 * i) / (nu - 1)) * SPREAD_SD
-      const v = Math.sqrt(totalVariance(u * half / SPREAD_SD, theta, s.params) / T)
+      const v = Math.sqrt(sliceW((u * half) / SPREAD_SD, sl) / T)
       const [x, y, z] = toWorld(f, u, T, v)
       const o = (j * nu + i) * 3
       positions[o] = x
@@ -106,13 +106,13 @@ export function surfaceGrid(s: Surface, nu: number, nt: number, f: Frame): Grid 
 
 /** Polyline along one expiry, for the lines that mark where real expiries sit. */
 export function expiryLine(s: Surface, f: Frame, T: number, n = 48): [number, number, number][] {
-  const theta = thetaCurve(s).value(T)
-  const half = SPREAD_SD * Math.sqrt(theta)
+  const sl = sliceAt(s, T)
+  const half = SPREAD_SD * Math.sqrt(sl.theta)
   const out: [number, number, number][] = []
   for (let i = 0; i < n; i++) {
     const u = (-1 + (2 * i) / (n - 1)) * SPREAD_SD
     const k = (u * half) / SPREAD_SD
-    out.push(toWorld(f, u, T, Math.sqrt(totalVariance(k, theta, s.params) / T)))
+    out.push(toWorld(f, u, T, Math.sqrt(sliceW(k, sl) / T)))
   }
   return out
 }

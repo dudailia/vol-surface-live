@@ -4,13 +4,46 @@ import type { Surface } from './ssvi'
 
 export const FLAG = { vertical: 1, butterfly: 2, calendar: 4, tradeable: 8 } as const
 
-export function surfaceOf(b: Pick<Bundle, 'expiries' | 'ssvi'>): Surface {
-  return {
+export type Model = 'ssvi' | 'essvi'
+
+/** The model the page shows for a bundle: the reader's choice, else the bundle's default. */
+export function modelFor(b: Bundle | undefined, choice: Model | null): Model {
+  if (choice === 'essvi' && b?.essvi) return 'essvi'
+  if (choice === 'ssvi') return 'ssvi'
+  return b?.selection?.selected === 'essvi' && b.essvi ? 'essvi' : 'ssvi'
+}
+
+export function surfaceOf(b: Pick<Bundle, 'expiries' | 'ssvi'> & Partial<Pick<Bundle, 'essvi'>>, model: Model = 'ssvi'): Surface {
+  const base: Surface = {
     T: b.expiries.map((e) => e.T),
     theta: b.expiries.map((e) => e.theta),
     params: { rho: b.ssvi.rho, eta: b.ssvi.eta, gamma: b.ssvi.gamma },
   }
+  if (model === 'essvi' && b.essvi) return { ...base, theta: b.essvi.theta, rho: b.essvi.rho, psi: b.essvi.psi }
+  return base
 }
+
+/** Per-expiry stats and fit quality for one model, in expiry order. */
+export function fitsOf(b: Bundle, model: Model) {
+  if (model === 'essvi' && b.essvi) {
+    return b.essvi.expiries.map((e, i) => ({ ...e, T: b.expiries[i].T, n: b.expiries[i].n }))
+  }
+  return b.expiries.map((e) => ({ code: e.code, stats: e.stats, rmse_vol_pts: e.rmse_vol_pts, inside_spread: e.inside_spread, T: e.T, n: e.n }))
+}
+
+export function tenorsOf(b: Bundle, model: Model) {
+  return model === 'essvi' && b.essvi ? b.essvi.tenors : b.tenors
+}
+
+export function localVolOf(b: Bundle, model: Model) {
+  return model === 'essvi' && b.essvi ? b.essvi.local_vol : b.local_vol
+}
+
+export function checksOf(b: Bundle, model: Model) {
+  return model === 'essvi' && b.essvi ? { min_g: b.essvi.min_g, min_dw_dT: b.essvi.min_dw_dT } : { min_g: b.ssvi.min_g, min_dw_dT: b.ssvi.min_dw_dT }
+}
+
+export const MODEL_NAME: Record<Model, string> = { ssvi: 'SSVI', essvi: 'eSSVI' }
 
 export type Quote = {
   instrument: string
@@ -47,8 +80,9 @@ export function quotesOf(b: Bundle): Quote[] {
   return out
 }
 
-export function posterQuotes(b: Bundle): PosterQuote[] {
-  const sqrtTheta = new Map(b.expiries.map((e) => [e.code, Math.sqrt(e.theta)]))
+export function posterQuotes(b: Bundle, model: Model = 'ssvi'): PosterQuote[] {
+  const thetas = model === 'essvi' && b.essvi ? b.essvi.theta : b.expiries.map((e) => e.theta)
+  const sqrtTheta = new Map(b.expiries.map((e, i) => [e.code, Math.sqrt(thetas[i])]))
   return quotesOf(b).map((q) => ({
     u: q.k / (sqrtTheta.get(q.expiry) ?? 1),
     T: q.T,
@@ -72,4 +106,12 @@ export function arbCounts(b: Bundle) {
 
 export function flaggedQuotes(b: Bundle): number {
   return quotesOf(b).filter((q) => q.flags !== 0).length
+}
+
+
+/** Every surface either model would draw, so one frame holds them all and switching morphs. */
+export function allSurfaces(latest: Partial<Record<'BTC' | 'ETH', Bundle>>): Surface[] {
+  return [latest.BTC, latest.ETH]
+    .filter((b): b is Bundle => b != null)
+    .flatMap((b) => (b.essvi ? [surfaceOf(b, 'ssvi'), surfaceOf(b, 'essvi')] : [surfaceOf(b, 'ssvi')]))
 }

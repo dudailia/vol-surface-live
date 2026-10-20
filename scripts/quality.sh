@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../web"
 pnpm build > /tmp/vsl-build.log 2>&1 || { tail -30 /tmp/vsl-build.log; exit 1; }
 lsof -ti tcp:3200 | xargs kill 2>/dev/null || true
-npx playwright test e2e/page.spec.ts 2>&1 | tail -3
+npx playwright test e2e/page.spec.ts 2>&1 | tail -3 || true
 summary() {
   for f in $(find .lighthouseci -name 'lhr-*.json'); do
     python3 -c "

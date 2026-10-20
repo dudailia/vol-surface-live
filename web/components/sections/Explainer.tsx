@@ -8,11 +8,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLive } from '@/components/LiveProvider'
 import { ExplainerFigure } from '@/components/charts/ExplainerFigure'
-import { arbCounts, nearestExpiry } from '@/lib/bundle'
+import { arbCounts, checksOf, fitsOf, MODEL_NAME, nearestExpiry } from '@/lib/bundle'
 import { expiryLabel, fixed } from '@/lib/format'
 
 export function Explainer() {
-  const { bundle, currency } = useLive()
+  const { bundle, currency, model } = useLive()
   const [step, setStep] = useState(1)
   const refs = useRef<(HTMLElement | null)[]>([])
 
@@ -32,13 +32,22 @@ export function Explainer() {
   }, [bundle])
 
   if (!bundle) return null
+  const fits = fitsOf(bundle, model)
   const e30 = nearestExpiry(bundle, 30)
-  const worst = bundle.expiries.reduce((a, b) => (b.rmse_vol_pts > a.rmse_vol_pts ? b : a))
-  const best = bundle.expiries.reduce((a, b) => (b.rmse_vol_pts < a.rmse_vol_pts ? b : a))
+  const f30 = fits[bundle.expiries.indexOf(e30)]
+  const worst = fits.reduce((a, b) => (b.rmse_vol_pts > a.rmse_vol_pts ? b : a))
+  const best = fits.reduce((a, b) => (b.rmse_vol_pts < a.rmse_vol_pts ? b : a))
   const counts = arbCounts(bundle)
-  const first = bundle.expiries[0]
-  const last = bundle.expiries[bundle.expiries.length - 1]
-  const rrPut = bundle.expiries.filter((e) => e.stats.rr25 < 0).length
+  const first = fits[0]
+  const last = fits[fits.length - 1]
+  const rrPut = fits.filter((e) => e.stats.rr25 < 0).length
+  const sel = bundle.selection
+  const insideMed = (xs: (number | null)[]) => {
+    const v = xs.filter((x): x is number => x != null).sort((a, b) => a - b)
+    return v.length ? v[Math.floor(v.length / 2)] : null
+  }
+  const inS = insideMed(bundle.expiries.map((e) => e.inside_spread))
+  const inE = bundle.essvi ? insideMed(bundle.essvi.expiries.map((e) => e.inside_spread)) : null
   const name = currency === 'BTC' ? 'bitcoin' : 'ether'
 
   const steps: { title: string; body: React.ReactNode }[] = [
@@ -66,14 +75,23 @@ export function Explainer() {
       ),
     },
     {
-      title: 'The SSVI fit',
+      title: 'The fit',
       body: (
         <>
-          SSVI (Gatheral and Jacquier, 2014) describes every expiry with one number, its at-the-money total
-          variance θ, plus three shared ones: ρ for skew, and η and γ for how curvature changes with θ. The fit
-          minimises error in implied vol, weighted towards tight, at-the-money quotes. Fit error ranges from{' '}
-          <span className="num">{fixed(best.rmse_vol_pts, 1)}</span> vol points ({expiryLabel(best.code)}) to{' '}
-          <span className="num">{fixed(worst.rmse_vol_pts, 1)}</span> ({expiryLabel(worst.code)}).
+          SSVI (Gatheral and Jacquier, 2014) describes every expiry with its at-the-money total variance θ, plus three
+          shared numbers: ρ for skew, and η and γ for how curvature changes with θ. Extended SSVI (Hendriks and Martini,
+          2019) gives each expiry its own skew ρ and slope ψ, under conditions that keep expiries from crossing.
+          {sel && inS != null && inE != null && (
+            <>
+              {' '}The fit lies inside the bid-ask spread for a median <span className="num">{Math.round(inE * 100)}%</span> of
+              quotes with eSSVI and <span className="num">{Math.round(inS * 100)}%</span> with SSVI. On quotes held out of the fit,
+              eSSVI&rsquo;s error is <span className="num">{fixed(sel.essvi, 2)}</span> vol points and SSVI&rsquo;s{' '}
+              <span className="num">{fixed(sel.ssvi, 2)}</span>, so the page shows {MODEL_NAME[sel.selected]} unless you pick
+              the other.
+            </>
+          )}{' '}
+          {MODEL_NAME[model]} error by expiry runs from <span className="num">{fixed(best.rmse_vol_pts, 1)}</span> vol points (
+          {expiryLabel(best.code)}) to <span className="num">{fixed(worst.rmse_vol_pts, 1)}</span> ({expiryLabel(worst.code)}).
         </>
       ),
     },
@@ -81,9 +99,11 @@ export function Explainer() {
       title: 'Static arbitrage',
       body: (
         <>
-          A surface has static arbitrage if some fixed portfolio of options costs less than nothing. The fit rules
-          it out by construction: θ never falls with expiry, and η(1&nbsp;+&nbsp;|ρ|)&nbsp;≤&nbsp;2 keeps
-          Durrleman&rsquo;s <i>g</i>(<i>k</i>) above zero. Raw quotes get no such guarantee. Right now{' '}
+          A surface has static arbitrage if some fixed portfolio of options costs less than nothing. Both fits rule it
+          out by construction: θ never falls with expiry, later expiries never cross earlier ones, and each slice meets
+          the bounds that keep Durrleman&rsquo;s <i>g</i>(<i>k</i>) above zero. The lowest <i>g</i>(<i>k</i>) on the{' '}
+          {MODEL_NAME[model]} surface is <span className="num">{fixed(checksOf(bundle, model).min_g, 3)}</span>. Raw quotes get
+          no such guarantee. Right now{' '}
           <span className="num">{counts.mid}</span> raw-quote {counts.mid === 1 ? 'check fails' : 'checks fail'} at mid
           prices and <span className="num">{counts.tradeable}</span> at prices you could actually trade.
         </>
@@ -95,8 +115,8 @@ export function Explainer() {
         <>
           The 25-delta risk reversal is the vol of a 25-delta call minus that of a 25-delta put. Negative means
           puts cost more. It is negative at <span className="num">{rrPut}</span> of{' '}
-          <span className="num">{bundle.expiries.length}</span> expiries. The butterfly measures how far the
-          wings sit above the money: <span className="num">{fixed(e30.stats.bf25, 1)}</span> vol points at{' '}
+          <span className="num">{fits.length}</span> expiries. The butterfly measures how far the
+          wings sit above the money: <span className="num">{fixed(f30.stats.bf25, 1)}</span> vol points at{' '}
           {expiryLabel(e30.code)}.
         </>
       ),
@@ -140,7 +160,7 @@ export function Explainer() {
             <p className="mb-2 text-note text-graphite" aria-live="polite">
               <span className="num">{step}</span> of <span className="num">{steps.length}</span>: {steps[step - 1].title}
             </p>
-            <ExplainerFigure bundle={bundle} step={step} />
+            <ExplainerFigure bundle={bundle} step={step} model={model} />
           </div>
         </div>
         <ol className="lg:order-1">

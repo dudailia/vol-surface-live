@@ -14,7 +14,7 @@ await page.waitForFunction(() => 'canvas' && document.querySelector('canvas') &&
 await page.waitForTimeout(1500)
 for (let i = 0; i < FPS * SECONDS; i++) {
   // Halfway: switch to ether, so the surface morphs between two real fits.
-  if (i === FPS * 7) await page.getByRole('radio', { name: 'ETH' }).click()
+  if (i === FPS * 7) await page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'ETH' }).click()
   await page.evaluate((dt) => window.__volsurf.step(dt), 1 / FPS)
   await page.screenshot({ path: `${dir}/f${String(i).padStart(4, '0')}.png` })
 }

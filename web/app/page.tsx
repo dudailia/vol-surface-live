@@ -5,7 +5,7 @@ import { History } from '@/components/sections/History'
 import { Methods } from '@/components/sections/Methods'
 import { WhatMoved } from '@/components/sections/WhatMoved'
 import { Hero } from '@/components/surface/Hero'
-import { surfaceOf } from '@/lib/bundle'
+import { allSurfaces } from '@/lib/bundle'
 import { getHistoryIndex, getHourly, getLatestReport, getLatestWithTime } from '@/lib/data'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
@@ -17,7 +17,7 @@ export default async function Page() {
     getHistoryIndex(),
     getHourly(),
   ])
-  const surfaces = [latest.BTC, latest.ETH].filter((b) => b != null).map(surfaceOf)
+  const surfaces = allSurfaces(latest)
   const frame = surfaces.length ? sharedFrame(surfaces) : { sqrtTMin: 0.1, sqrtTMax: 1, volLo: 0.2, volHi: 1 }
   const ts = latest.BTC?.ts ?? latest.ETH?.ts
   // The next 00:00 UTC after the latest snapshot, for "the first report is written at ...".

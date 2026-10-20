@@ -5,7 +5,7 @@ import { useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLive, type Currency } from '@/components/LiveProvider'
 import { Num } from '@/components/Num'
-import { arbCounts, posterQuotes, quotesOf, surfaceOf } from '@/lib/bundle'
+import { MODEL_NAME, arbCounts, posterQuotes, quotesOf, surfaceOf, tenorsOf, type Model } from '@/lib/bundle'
 import { fixed, utcStamp } from '@/lib/format'
 import { DEPTH, HALF_WIDTH, SPREAD_SD, toWorld } from '@/lib/geometry'
 import type { CanvasHandle, CanvasQuote } from './SurfaceCanvas'
@@ -34,7 +34,7 @@ function spreadExpiries<T extends { T: number }>(list: T[], n: number): T[] {
 }
 
 export function Hero() {
-  const { currency, setCurrency, bundle, bundles, frame, history, setHistory, stale } = useLive()
+  const { currency, setCurrency, bundle, bundles, frame, history, setHistory, stale, model, setModelChoice } = useLive()
   const reduce = useReducedMotion() ?? false
   const [ready, setReady] = useState(false)
   // WebGL starts after the page is idle on desktop, and only on request on phones and touch
@@ -52,15 +52,15 @@ export function Hero() {
     () => false,
   )
 
-  const surface = useMemo(() => (history ? history.surface : bundle ? surfaceOf(bundle) : null), [history, bundle])
+  const surface = useMemo(() => (history ? history.surface : bundle ? surfaceOf(bundle, model) : null), [history, bundle, model])
   const quotes = useMemo<CanvasQuote[]>(() => {
     if (!bundle || history) return []
     const qs = quotesOf(bundle)
-    return posterQuotes(bundle).map((p, i) => ({
+    return posterQuotes(bundle, model).map((p, i) => ({
       ...p,
       label: `${qs[i].instrument}: bid ${fixed(qs[i].bid * 100)}%, ask ${fixed(qs[i].ask * 100)}%${p.flagged ? ', breaks static arbitrage' : ''}`,
     }))
-  }, [bundle, history])
+  }, [bundle, history, model])
   const expiries = useMemo(
     () => (history ? history.expiries : (bundle?.expiries ?? [])).map((e) => ({ T: e.T, code: e.code })),
     [bundle, history],
@@ -115,7 +115,8 @@ export function Hero() {
     )
   }
 
-  const t30 = bundle.tenors['30d']
+  const t30 = tenorsOf(bundle, model)['30d']
+  const sel = bundle.selection
   const counts = arbCounts(bundle)
   const volTicks: number[] = []
   for (let v = Math.ceil(frame.volLo * 10) / 10 + 0.1; v <= frame.volHi + 1e-9; v += 0.1) volTicks.push(v)
@@ -177,6 +178,14 @@ export function Hero() {
           )
         )}
       </p>
+      {sel && bundle.essvi && !history && (
+        <p className="mt-2 max-w-[34rem] text-note text-graphite">
+          Fitted with {MODEL_NAME[model]}.{' '}
+          {model === sel.selected ? 'It' : `${MODEL_NAME[sel.selected]}, the default,`} had the lower error on held-out quotes
+          over the last {sel.n === 1 ? 'snapshot' : `${sel.n} snapshots`}: <span className="num">{fixed(sel.essvi, 2)}</span> vol
+          points for eSSVI against <span className="num">{fixed(sel.ssvi, 2)}</span> for SSVI.
+        </p>
+      )}
     </>
   )
 
@@ -277,18 +286,36 @@ export function Hero() {
               {failed && <span>{failed}; showing a still image.</span>}
             </span>
             {!failed && !capture && (
-              <span className="flex gap-2">
+              <span className="flex flex-wrap items-center gap-2">
+                {bundle.essvi && (
+                  <span className="inline-flex items-center gap-2">
+                    <span aria-hidden="true">Fit</span>
+                    <Segmented<Model>
+                      label="Fit"
+                      value={model}
+                      options={['essvi', 'ssvi']}
+                      names={MODEL_NAME}
+                      onChange={(m) => {
+                        setModelChoice(m === bundle.selection?.selected ? null : m)
+                        // The still image shows the default fit; draw the chosen one live.
+                        setLoad(true)
+                      }}
+                    />
+                  </span>
+                )}
                   <button
                     type="button"
-                    className="press rounded-[4px] border border-rule bg-paper/70 px-3 py-1.5 text-ink hover:border-graphite motion-reduce:hidden"
+                    className={`press rounded-[4px] border border-rule bg-paper/70 px-3 py-1.5 text-ink hover:border-graphite motion-reduce:hidden ${ready ? '' : 'invisible'}`}
                     aria-pressed={!autoRotate}
                     onClick={() => setAutoRotate((a) => !a)}
                   >
                     {autoRotate ? 'Pause rotation' : 'Resume rotation'}
                   </button>
+                {/* View controls keep their room but stay hidden until the 3D view is drawn, so
+                    nothing shifts when it arrives and nothing inert can be pressed. */}
                 <button
                   type="button"
-                  className="press rounded-[4px] border border-rule bg-paper/70 px-3 py-1.5 text-ink hover:border-graphite"
+                  className={`press rounded-[4px] border border-rule bg-paper/70 px-3 py-1.5 text-ink hover:border-graphite ${ready ? '' : 'invisible'}`}
                   onClick={() => canvas.current?.resetView()}
                 >
                   Reset view
@@ -351,30 +378,49 @@ function Legend() {
 }
 
 function CurrencyToggle({ value, onChange, available }: { value: Currency; onChange: (c: Currency) => void; available: Currency[] }) {
-  const options: Currency[] = ['BTC', 'ETH']
+  return <Segmented<Currency> label="Underlying" value={value} options={['BTC', 'ETH']} onChange={onChange} disabled={(c) => !available.includes(c)} />
+}
+
+/** A radio group drawn as a segmented control; arrow keys move and select, as radios do. */
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  names,
+  onChange,
+  disabled,
+}: {
+  label: string
+  value: T
+  options: T[]
+  names?: Record<T, string>
+  onChange: (v: T) => void
+  disabled?: (v: T) => boolean
+}) {
   return (
-    <div role="radiogroup" aria-label="Underlying" className="inline-flex rounded-[4px] border border-rule p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-[4px] border border-rule bg-paper/70 p-0.5">
       {options.map((c) => (
         <button
           key={c}
           type="button"
           role="radio"
           aria-checked={value === c}
-          disabled={!available.includes(c)}
+          disabled={disabled?.(c)}
           tabIndex={value === c ? 0 : -1}
           onClick={() => onChange(c)}
           onKeyDown={(e) => {
             if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
               e.preventDefault()
-              const next = options[(options.indexOf(c) + 1) % options.length]
+              const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1
+              const next = options[(options.indexOf(c) + step + options.length) % options.length]
               onChange(next)
-              ;(e.currentTarget.parentElement?.querySelector(`[data-c="${next}"]`) as HTMLElement | null)?.focus()
+              ;(e.currentTarget.parentElement?.querySelector(`[data-v="${next}"]`) as HTMLElement | null)?.focus()
             }
           }}
-          data-c={c}
+          data-v={c}
           className={`press num rounded-[3px] px-3 py-1 text-note ${value === c ? 'bg-indigo-wash text-ink' : 'text-graphite hover:text-ink'}`}
         >
-          {c}
+          {names ? names[c] : c}
         </button>
       ))}
     </div>

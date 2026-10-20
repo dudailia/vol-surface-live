@@ -24,6 +24,8 @@ const compactSurface = z.object({
   index_price: z.number(),
   ssvi: z.object({ rho: z.number(), eta: z.number(), gamma: z.number() }),
   expiries: z.array(z.object({ code: z.string(), T: z.number(), theta: z.number(), atm: z.number() })),
+  essvi: z.object({ theta: z.array(z.number()), rho: z.array(z.number()), psi: z.array(z.number()) }).optional(),
+  selected: z.enum(['ssvi', 'essvi']).optional(),
 })
 export type CompactSurface = z.infer<typeof compactSurface>
 const historyIndex = z.object({

@@ -7,8 +7,66 @@
 
 export type SSVIParams = { rho: number; eta: number; gamma: number }
 
-/** What it takes to draw a surface: fitted θ per expiry plus the global parameters. */
-export type Surface = { T: number[]; theta: number[]; params: SSVIParams }
+/**
+ * What it takes to draw a surface: fitted θ per expiry, SSVI's global parameters, and for
+ * extended SSVI (Hendriks and Martini, 2019) a skew ρ and slope scale ψ = θφ per expiry.
+ */
+export type Surface = { T: number[]; theta: number[]; params: SSVIParams; rho?: number[]; psi?: number[] }
+
+/** One slice: at-the-money total variance θ, skew ρ and φ (so w = SSVI slice in k). */
+export type Slice = { theta: number; rho: number; phi: number }
+
+export function sliceW(k: number, s: Slice): number {
+  const z = s.phi * k + s.rho
+  return 0.5 * s.theta * (1 + s.rho * s.phi * k + Math.sqrt(z * z + 1 - s.rho * s.rho))
+}
+
+export function sliceG(k: number, s: Slice): number {
+  const z = s.phi * k + s.rho
+  const r = Math.sqrt(z * z + 1 - s.rho * s.rho)
+  const w = 0.5 * s.theta * (1 + s.rho * s.phi * k + r)
+  const w1 = 0.5 * s.theta * (s.rho * s.phi + (s.phi * z) / r)
+  const w2 = (0.5 * s.theta * s.phi * s.phi * (1 - s.rho * s.rho)) / r ** 3
+  return (1 - (k * w1) / (2 * w)) ** 2 - ((w1 * w1) / 4) * (1 / w + 0.25) + w2 / 2
+}
+
+const lerpAt = (xs: number[], ys: number[], x: number) => {
+  if (x <= xs[0]) return ys[0]
+  if (x >= xs[xs.length - 1]) return ys[ys.length - 1]
+  let i = 1
+  while (xs[i] < x) i++
+  const t = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+  return ys[i - 1] + (ys[i] - ys[i - 1]) * t
+}
+
+/**
+ * The slice at any T in the fitted range. θ follows the monotone cubic in T; for eSSVI,
+ * ψ and p = ρψ are linear in θ between expiries (as in worker/src/volsurf/essvi.py), which
+ * keeps the calendar condition; for SSVI, ρ is global and φ = φ(θ).
+ */
+export function sliceAt(s: Surface, T: number, curve = thetaCurve(s)): Slice {
+  const theta = curve.value(Math.min(Math.max(T, s.T[0]), s.T[s.T.length - 1]))
+  return sliceAtTheta(s, theta)
+}
+
+export function sliceAtTheta(s: Surface, theta: number): Slice {
+  if (s.rho && s.psi) {
+    const psi = lerpAt(s.theta, s.psi, theta)
+    const p = lerpAt(
+      s.theta,
+      s.psi.map((ps, i) => ps * s.rho![i]),
+      theta,
+    )
+    return { theta, rho: p / psi, phi: psi / theta }
+  }
+  return { theta, rho: s.params.rho, phi: phi(theta, s.params) }
+}
+
+/** The fitted slice of expiry i. */
+export function sliceOf(s: Surface, i: number): Slice {
+  if (s.rho && s.psi) return { theta: s.theta[i], rho: s.rho[i], phi: s.psi[i] / s.theta[i] }
+  return { theta: s.theta[i], rho: s.params.rho, phi: phi(s.theta[i], s.params) }
+}
 
 export function phi(theta: number, p: SSVIParams): number {
   return p.eta * theta ** -p.gamma * (1 + theta) ** (p.gamma - 1)
@@ -141,8 +199,13 @@ export function normCdf(x: number): number {
 
 /** Log-moneyness where the forward call delta N(d1) equals `delta` (0.75 = a 25-delta put). */
 export function forwardDeltaK(theta: number, p: SSVIParams, delta: number): number {
+  return sliceDeltaK({ theta, rho: p.rho, phi: phi(theta, p) }, delta)
+}
+
+export function sliceDeltaK(sl: Slice, delta: number): number {
+  const theta = sl.theta
   const f = (k: number) => {
-    const sw = Math.sqrt(totalVariance(k, theta, p))
+    const sw = Math.sqrt(sliceW(k, sl))
     return normCdf(-k / sw + 0.5 * sw) - delta
   }
   let lo = -(8 * Math.sqrt(theta) + 0.5)
@@ -156,32 +219,42 @@ export function forwardDeltaK(theta: number, p: SSVIParams, delta: number): numb
 }
 
 export function smileStats(theta: number, T: number, p: SSVIParams) {
-  const vol = (k: number) => impliedVol(k, theta, T, p) * 100
+  return sliceStats({ theta, rho: p.rho, phi: phi(theta, p) }, T)
+}
+
+export function sliceStats(sl: Slice, T: number) {
+  const vol = (k: number) => Math.sqrt(sliceW(k, sl) / T) * 100
   const atm = vol(0)
-  const c25 = vol(forwardDeltaK(theta, p, 0.25))
-  const p25 = vol(forwardDeltaK(theta, p, 0.75))
+  const c25 = vol(sliceDeltaK(sl, 0.25))
+  const p25 = vol(sliceDeltaK(sl, 0.75))
   return { atm, rr25: c25 - p25, bf25: 0.5 * (c25 + p25) - atm, call25: c25, put25: p25 }
 }
 
 /**
- * Blend two surfaces in parameter space so a change of snapshot morphs instead of jumping.
- * Both θ curves are resampled onto one T grid (expiries differ between snapshots), then θ,
- * ρ, η and γ are mixed linearly. θ is kept non-decreasing in T. The set η(1+|ρ|) ≤ 2 is not
- * convex, so a straight mix can leave it; η is then pulled back onto the boundary. Every
- * in-between frame therefore satisfies the same no-arbitrage conditions as the fits.
+ * Blend two surfaces so a change of snapshot or model morphs instead of jumping. Both are
+ * written as per-expiry slices (θ, ψ, p = ρψ) on one T grid and mixed linearly. θ and ψ stay
+ * non-decreasing and |Δp| ≤ Δψ survives a convex combination, so every in-between frame
+ * keeps the calendar condition; the butterfly bound ψ(1+|ρ|) < 4 is convex and survives too.
  */
 export function blendSurfaces(a: Surface, b: Surface, t: number, grid: number[]): Surface {
   const ca = thetaCurve(a)
   const cb = thetaCurve(b)
-  const clampT = (s: Surface, x: number) => Math.min(Math.max(x, s.T[0]), s.T[s.T.length - 1])
-  const theta = grid.map((x) => {
-    const va = ca.value(clampT(a, x))
-    const vb = cb.value(clampT(b, x))
-    return va + (vb - va) * t
-  })
-  for (let i = 1; i < theta.length; i++) theta[i] = Math.max(theta[i], theta[i - 1])
-  const mix = (x: number, y: number) => x + (y - x) * t
-  const rho = mix(a.params.rho, b.params.rho)
-  const eta = Math.min(mix(a.params.eta, b.params.eta), 2 / (1 + Math.abs(rho)))
-  return { T: grid, theta, params: { rho, eta, gamma: mix(a.params.gamma, b.params.gamma) } }
+  const theta: number[] = []
+  const psi: number[] = []
+  const p: number[] = []
+  for (const T of grid) {
+    const sa = sliceAt(a, T, ca)
+    const sb = sliceAt(b, T, cb)
+    const mix = (x: number, y: number) => x + (y - x) * t
+    theta.push(mix(sa.theta, sb.theta))
+    const pa = sa.phi * sa.theta
+    const pb = sb.phi * sb.theta
+    psi.push(mix(pa, pb))
+    p.push(mix(sa.rho * pa, sb.rho * pb))
+  }
+  for (let i = 1; i < theta.length; i++) {
+    theta[i] = Math.max(theta[i], theta[i - 1])
+    psi[i] = Math.max(psi[i], psi[i - 1])
+  }
+  return { T: grid, theta, params: t < 0.5 ? a.params : b.params, psi, rho: p.map((x, i) => x / psi[i]) }
 }

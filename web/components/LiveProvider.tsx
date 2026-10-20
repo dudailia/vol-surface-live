@@ -7,6 +7,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { bundleSchema, type Bundle } from '@/lib/generated/bundle'
+import { modelFor, type Model } from '@/lib/bundle'
 import type { Frame } from '@/lib/geometry'
 import type { Surface } from '@/lib/ssvi'
 
@@ -29,6 +30,10 @@ type Live = {
   history: HistoryPick | null
   setHistory: (h: HistoryPick | null) => void
   stale: boolean
+  /** the model on screen: the reader's choice, else the bundle's default */
+  model: Model
+  modelChoice: Model | null
+  setModelChoice: (m: Model | null) => void
 }
 
 const Ctx = createContext<Live | null>(null)
@@ -51,6 +56,7 @@ export function LiveProvider({
   const [bundles, setBundles] = useState(initial)
   const [currency, setCurrency] = useState<Currency>('BTC')
   const [history, setHistory] = useState<HistoryPick | null>(null)
+  const [modelChoice, setModelChoice] = useState<Model | null>(null)
   // The server's clock until the client's takes over, so the stale notice is in the HTML.
   const [now, setNow] = useState<number>(fetchedAt)
 
@@ -90,9 +96,10 @@ export function LiveProvider({
   const bundle = bundles[currency]
   const stale = bundle != null && now - Date.parse(bundle.ts) > STALE_MS
 
+  const model = modelFor(bundle, modelChoice)
   const value = useMemo<Live>(
-    () => ({ currency, setCurrency, bundles, bundle, frame, history, setHistory, stale }),
-    [currency, bundles, bundle, frame, history, stale],
+    () => ({ currency, setCurrency, bundles, bundle, frame, history, setHistory, stale, model, modelChoice, setModelChoice }),
+    [currency, bundles, bundle, frame, history, stale, model, modelChoice],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
