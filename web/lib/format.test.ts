@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { expiryLabel, signed, utcStamp } from './format'
+import { expiryLabel, expiryShort, signed, utcStamp } from './format'
 
 describe('format', () => {
   it('signs with a true minus and no negative zero', () => {
@@ -9,6 +9,7 @@ describe('format', () => {
   })
   it('labels expiries and UTC stamps', () => {
     expect(expiryLabel('6NOV26')).toBe('6 Nov 2026')
+    expect(expiryShort('24SEP27')).toBe('24 Sep \u201927')
     expect(utcStamp('2026-10-19T18:51:36Z')).toBe('18:51 UTC, 19 October 2026')
   })
 })

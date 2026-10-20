@@ -1,5 +1,5 @@
 import type { Bundle } from '@/lib/generated/bundle'
-import { expiryLabel, fixed, utcStamp } from '@/lib/format'
+import { expiryLabel, expiryShort, fixed, utcStamp } from '@/lib/format'
 import { REPO_PUBLIC, REPO_URL } from '@/lib/site'
 
 /** Methods and limitations. Rules and counts come from the latest bundles, not from copy. */
@@ -72,7 +72,7 @@ export function Methods({
                   <td className="py-2 pr-4">Kept and fitted</td>
                   {(['BTC', 'ETH'] as const).map((c) =>
                     bundles[c] ? (
-                      <td key={c} className="num py-2 pl-4 text-right text-ink">
+                      <td key={c} className="num whitespace-nowrap py-2 pl-4 text-right text-ink">
                         {bundles[c]!.cleaning.n_kept} of {bundles[c]!.cleaning.n_raw}
                       </td>
                     ) : null,
@@ -130,17 +130,17 @@ export function Methods({
                 if (!x?.essvi) return null
                 return (
                   <div key={c} className="mt-6 overflow-x-auto">
-                    <table className="w-full min-w-[28rem] text-note">
+                    <table className="w-full text-note">
                       <caption className="mb-2 text-left text-graphite">
                         {c}, fit error by expiry (RMSE, vol points) and share of quotes inside bid-ask
                       </caption>
                       <thead>
                         <tr className="border-b border-rule text-left text-graphite">
                           <th scope="col" className="py-2 pr-4 font-normal">Expiry</th>
-                          <th scope="col" className="py-2 pl-4 text-right font-normal">SSVI</th>
-                          <th scope="col" className="py-2 pl-4 text-right font-normal">eSSVI</th>
-                          <th scope="col" className="py-2 pl-4 text-right font-normal">inside, SSVI</th>
-                          <th scope="col" className="py-2 pl-4 text-right font-normal">inside, eSSVI</th>
+                          <th scope="col" className="py-2 pl-3 text-right font-normal">RMSE SSVI</th>
+                          <th scope="col" className="py-2 pl-3 text-right font-normal">RMSE eSSVI</th>
+                          <th scope="col" className="py-2 pl-3 text-right font-normal">inside SSVI</th>
+                          <th scope="col" className="py-2 pl-3 text-right font-normal">inside eSSVI</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -149,11 +149,11 @@ export function Methods({
                           const pct = (v: number | null) => (v == null ? 'n/a' : `${Math.round(v * 100)}%`)
                           return (
                             <tr key={e.code} className="border-b border-rule/60">
-                              <td className="py-1.5 pr-4">{expiryLabel(e.code)}</td>
-                              <td className="num py-1.5 pl-4 text-right">{fixed(e.rmse_vol_pts, 2)}</td>
-                              <td className="num py-1.5 pl-4 text-right">{fixed(f.rmse_vol_pts, 2)}</td>
-                              <td className="num py-1.5 pl-4 text-right">{pct(e.inside_spread)}</td>
-                              <td className="num py-1.5 pl-4 text-right">{pct(f.inside_spread)}</td>
+                              <td className="whitespace-nowrap py-1.5 pr-3">{expiryShort(e.code)}</td>
+                              <td className="num py-1.5 pl-3 text-right">{fixed(e.rmse_vol_pts, 2)}</td>
+                              <td className="num py-1.5 pl-3 text-right">{fixed(f.rmse_vol_pts, 2)}</td>
+                              <td className="num py-1.5 pl-3 text-right">{pct(e.inside_spread)}</td>
+                              <td className="num py-1.5 pl-3 text-right">{pct(f.inside_spread)}</td>
                             </tr>
                           )
                         })}

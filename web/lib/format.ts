@@ -51,3 +51,10 @@ export function days(T: number): string {
 export function upDown(x: number, up = 'rose', down = 'fell', flat = 'was unchanged'): string {
   return Math.abs(x) < 0.05 ? flat : x > 0 ? up : down
 }
+
+/** "27NOV26" → "27 Nov ’26", for narrow tables. */
+export function expiryShort(code: string): string {
+  const m = /^(\d{1,2})([A-Z]{3})(\d{2})$/.exec(code)
+  if (!m) return code
+  return `${Number(m[1])} ${m[2][0]}${m[2].slice(1).toLowerCase()} ’${m[3]}`
+}
