@@ -1,6 +1,6 @@
 # vol-surface-live
 
-A live implied-volatility surface for Bitcoin and Ether options, built from Deribit's free public API. Every five minutes a worker pulls every listed option, cleans the quotes, fits an SSVI surface under no-arbitrage constraints, checks the raw quotes for static arbitrage, and publishes the result. Each day at 00:00 UTC it writes a JSON report of what changed.
+A live implied-volatility surface for Bitcoin and Ether options, built from Deribit's free public API. Every five minutes a worker pulls every listed option, cleans the quotes, fits two surface models (SSVI and extended SSVI) under no-arbitrage constraints, checks the raw quotes for static arbitrage, and publishes the result. Each day at 00:00 UTC it writes a JSON report of what changed.
 
 Live page: https://vol.iliaduda.com
 
@@ -58,6 +58,24 @@ w(k, θ) = θ/2 · [1 + ρφk + √((φk + ρ)² + 1 − ρ²)]
 - After every fit the surface is checked on a grid: Durrleman's g(k) ≥ 0 and ∂w/∂T ≥ 0.
 - Fit error is reported per expiry as RMSE in vol points and as the share of quotes where the fit sits inside the bid-ask spread.
 
+### Extended SSVI and the choice between models
+
+Extended SSVI (Hendriks and Martini, 2019) keeps the SSVI slice but gives every expiry its own skew ρ and slope ψ = θφ.
+
+- **No calendar arbitrage:** θ and ψ never fall with expiry, and |ρ₂ψ₂ − ρ₁ψ₁| ≤ ψ₂ − ψ₁ between neighbouring expiries, so neither wing's asymptotic slope ψ(1 ± ρ)/2 falls with maturity.
+- **No butterfly arbitrage:** at each expiry, ψ(1 + |ρ|) < 4 and ψ²(1 + |ρ|) ≤ 4θ.
+- **Between expiries:** θ follows a monotone cubic in T; ψ and ρψ are linear in θ, which keeps the calendar condition.
+- Every fit is checked on a grid that includes the slices between expiries.
+
+eSSVI contains SSVI, so it always fits the same quotes at least as well. To choose fairly, both models are refitted every snapshot with every fifth quote held out, and the page defaults to the one with the lower median error on the held-out quotes over the last hour (`selection` in every bundle). On all 129 snapshots archived on 19 October 2026 (`paper/data/model-comparison-2026-10-19.json`):
+
+| | Median hold-out error, eSSVI / SSVI (vol pts) | Median share of quotes inside bid-ask, eSSVI / SSVI |
+|---|---|---|
+| BTC (65 snapshots) | 1.20 / 1.51 | 68% / 40% |
+| ETH (64 snapshots) | 1.42 / 1.82 | 73% / 37% |
+
+eSSVI had the lower hold-out error in every snapshot. ETH's unweighted in-sample median error by expiry was higher with eSSVI (1.53 against 1.39), because both fits weight tight at-the-money quotes over wide wings. Regenerate with `uv run python -m volsurf.evaluate <raw parquet files> --out results.json`.
+
 ### Checks on raw quotes
 
 Vertical spreads (call prices fall with strike, by no more than the strike gap), butterflies (call prices convex in strike) and calendar spreads (total variance rises with expiry at fixed k). Puts become call-equivalents by put-call parity on the forward. Each check runs twice: at mid prices ("mid-quote violation") and at executable prices, buying at the ask and selling at the bid ("tradeable at quoted prices").
@@ -80,7 +98,7 @@ uv sync
 uv run volsurf snapshot          # one snapshot of BTC and ETH into ./data
 uv run volsurf serve             # scheduler + HTTP server on :8080
 uv run volsurf report --date 2026-10-19
-uv run pytest                    # 52 tests, offline
+uv run pytest                    # 59 tests, offline
 ```
 
 Web (Node 22, pnpm):
@@ -98,20 +116,20 @@ pnpm test && pnpm build && pnpm e2e && pnpm lhci
 - **Worker (pytest + hypothesis):**
   - Black-76 prices and Greeks against QuantLib to 1e-10, plus a textbook value and finite differences.
   - Implied-vol round trips.
-  - SSVI with known parameters recovers them to 1e-4.
+  - SSVI with known parameters recovers them to 1e-4; eSSVI recovers known per-expiry skews to 1e-3.
   - The constraints hold after fitting random surfaces.
-  - The arbitrage checks fire on deliberately broken inputs (concave prices, slopes below −1, total variance falling with expiry, a slice with g(k) < 0) and stay quiet on clean ones.
+  - The arbitrage checks fire on deliberately broken inputs (concave prices, slopes below −1, total variance falling with expiry, a slice with g(k) < 0, a crossing pair of eSSVI expiries) and stay quiet on clean ones.
   - Local vol equals implied vol on a flat surface and matches a closed form for a time-dependent one.
   - Report units and signs, schema validation, endpoints, Blob upload headers and budget.
-- **Web (Vitest):** the TypeScript SSVI matches the Python implementation to 12 decimal places.
-- **Web (Playwright):** zero console errors; axe with no violations; keyboard use; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px.
+- **Web (Vitest):** the TypeScript SSVI and eSSVI match the Python implementation to 12 decimal places; blended frames keep the calendar condition; the slimmed client bundle round-trips.
+- **Web (Playwright, 16 tests):** zero console errors; each hero number once in the server HTML; stale snapshots stated in the server HTML; axe with no violations; keyboard use of both toggles and the history slider; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px.
 - **Lighthouse CI:** 90 or more in every category, mobile and desktop.
 - **Copy:** a copy check fails the build on em dashes or hype words.
 
 ## Limitations
 
 - Deribit quotes only. This describes one venue's order book; it is not a trading signal.
-- One ρ for all expiries cannot follow skew that changes with maturity, so the deep put wing of some expiries fits worse than the money. Extended SSVI (ρ per expiry, Hendriks and Martini 2019) would fix this while keeping the no-arbitrage conditions.
+- SSVI's single ρ cannot follow skew that changes with maturity; eSSVI can, but neither reproduces every quote. Per-expiry errors for both models are in every snapshot.
 - "Tradeable at quoted prices" ignores fees, margin and size.
 - Snapshots are five minutes apart; nothing in between is seen.
 

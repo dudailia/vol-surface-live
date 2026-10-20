@@ -121,10 +121,16 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - Blob store vol-surface-archive (public, lhr1).
 - Domain vol.iliaduda.com, served by Vercel DNS, so no record was needed.
 
-**Open**
-- The Fly worker is not deployed yet: the user skipped Fly login on 2026-10-19.
-- Until it is, the page shows one real snapshot uploaded to Blob as latest.json (22:29 UTC, 19 October 2026), with its timestamp and a stale-data notice. One Blob upload was used.
-- Deploying the worker: `fly auth login`, then `cd worker && fly launch --no-deploy --copy-config`, `fly volumes create volsurf_data --region lhr --size 5`, `fly secrets set BLOB_READ_WRITE_TOKEN=...`, `fly deploy`. Then set WORKER_URL on Vercel and redeploy.
+**Worker deployed (2026-10-20 01:20 UTC)**
+- Fly app vol-surface-live in lhr: shared-cpu-1x, 512 MB, 5 GB volume volsurf_data, shared IPv4 and dedicated IPv6.
+- Secrets: BLOB_READ_WRITE_TOKEN, LATEST_TOKEN and BLOB_BASE_URL. `/latest.json` and `/history.json` need the bearer token; Vercel has it as LATEST_TOKEN. `/healthz` is public.
+- Vercel has WORKER_URL=https://vol-surface-live.fly.dev.
+- The laptop worker is stopped.
+- Its bundles for 19 and 20 October, the 19 October report and the compacted raw file were copied onto the volume, so the next report can compare against the 00:00 surface of 20 October.
+- The first daily report (19 October) was written by the laptop worker at 00:00 UTC. It came from the same code, with 62 BTC and 61 ETH snapshots; the laptop lost its network from about 17:34 to 18:45 UTC. It was published to the archive at 01:15 UTC, together with both end-of-day surfaces and the hourly raw Parquet.
+- Bugs found and fixed while publishing:
+  - The publisher matched end-of-day bundles by comparing timestamp strings ("Z" against "+00:00"), so the history index came out empty. It now compares instants, and a test uses the "Z" form.
+  - A fresh volume would have rebuilt the archive's indexes from scratch. The worker now merges with the published ones.
 
 ## Phase 5: portfolio (done 2026-10-19 except the public repo)
 
@@ -136,3 +142,63 @@ The 13 e2e tests cover: zero console errors, axe with no violations, keyboard us
 - `paper/`: a draft page in the site's form (page.tsx, OG image, figure from the archived snapshot, registry and facts entries with sources), with a merge guide. iliaduda-site was not touched.
 - `media/surface.mp4`: 1080x1080, 15.0 s, 30 fps, H.264. 450 frames were stepped deterministically from the live page in capture mode, with BTC morphing to ETH at 7 s.
 - `docs/linkedin-post.md`: 131 words, one live number (BTC 30-day ATM 35.7% at 22:29 UTC, 19 October 2026), link in the first comment.
+
+## Session 3 (2026-10-20, 01:10 to about 02:30 UTC)
+
+### Fixes
+- **Numbers rendered twice in the server HTML** ("35.7%35.7%"). The count-up is now one text node animated in place. An e2e test reads the server HTML and checks that each hero number appears once.
+- **Staleness in the server HTML.** The cached fetch records when it ran. If the snapshot is more than 15 minutes old, the hero says "Latest snapshot ... more than 15 minutes old" in the server HTML, not after hydration. An e2e test checks the wording against the snapshot's age.
+- **GitHub links hidden.** `REPO_PUBLIC = false` in `web/lib/site.ts` hides "Source on GitHub" and the "open source" wording. An e2e test checks that no github.com link is in the page. To publish, flip the flag; the paper README lists the links to add.
+- **Methods table order.** Cleaning rules are now listed in the order they run, in sentence case.
+
+### Extended SSVI
+- `worker/src/volsurf/essvi.py`: per-expiry θ, ρ and ψ, fitted from the SSVI solution under these constraints:
+  - butterflies: ψ(1+|ρ|) < 4 and ψ²(1+|ρ|) ≤ 4θ;
+  - calendar: θ and ψ non-decreasing, and |Δ(ρψ)| ≤ Δψ.
+  Between expiries ψ and ρψ are linear in θ. A grid check covers the in-between slices.
+- **Model choice:** every snapshot both models are refitted with every fifth quote held out. The default is the model with the lower median hold-out error over the last 12 snapshots. The evidence is in each bundle's `selection` block, and the page has a Fit toggle.
+- **Daily reports** use eSSVI only when both ends of the day carry it, and record the model.
+- **Measured on all 129 archived snapshots of 19 October** (`paper/data/model-comparison-2026-10-19.json`, from `python -m volsurf.evaluate`):
+
+| | Median hold-out error, eSSVI / SSVI | Median share inside bid-ask, eSSVI / SSVI |
+|---|---|---|
+| BTC | 1.20 / 1.51 vol pts | 68% / 40% |
+| ETH | 1.42 / 1.82 vol pts | 73% / 37% |
+
+  eSSVI had the lower hold-out error in every snapshot. ETH's unweighted in-sample median error was higher with eSSVI (1.53 against 1.39). Both models passed the grid checks in every snapshot (lowest g(k) 0.2556, no negative ∂w/∂T).
+- **Tests:**
+  - worker 59, including eSSVI recovering known per-expiry skews to 1e-3, constraints after random fits, a crossing pair caught by the grid check, never worse than SSVI on real quotes, and the offline evaluator;
+  - Vitest 12, including eSSVI parity with Python to 12 places and blends keeping the calendar condition;
+  - Playwright 16.
+- **Morphs** now mix (θ, ψ, ρψ) per expiry, which keeps the calendar condition on every frame, including SSVI to eSSVI.
+
+### History
+- The hourly picker in the worker matched file names ending in "00". Deribit's server time can read a second early (01:19:59 for the 01:20 run), so almost no snapshot matched. It now takes the snapshot nearest each hour, within 5 minutes; a test covers it.
+- `/history.json` now returns one surface per hour (8 per currency at 02:00 UTC, growing to 48).
+- "What moved" shows the first report's levels when there is no earlier day, and says which model the report used.
+- e2e tests drive the history slider by keyboard and check the What moved section.
+
+### Paper
+- `paper/` is rewritten around the two models and the deployed setup.
+- Fig. 1: one expiry with both fits. Fig. 2: hold-out error over the day.
+- Facts come from `paper/data/snapshot-2026-10-20T0154Z.json` and the comparison file.
+- Repo links were left out of the Meta table while the repo is private.
+
+### Performance
+- After the eSSVI fields were added, CI's two-core runner scored mobile performance 87 to 92 (median 89) on the home page.
+- Fixes:
+  - the browser now gets a slimmed bundle (instrument names and mids rebuilt client-side, unused fields dropped, local vol at 0.1 point; about 40% smaller);
+  - zod is out of the browser (the server still validates);
+  - Motion loads through LazyMotion with DOM features only;
+  - the count-up uses requestAnimationFrame.
+- The page chunk went from 109 KB to 68 KB gzipped.
+- Local mobile Lighthouse is now 95 to 96, and 95 to 98 with the CPU throttled 6x.
+
+### Video
+- `media/surface.mp4` was re-recorded from the current page: eSSVI default with its evidence sentence, BTC morphing to ETH.
+
+### Questions for the owner
+1. **Repo public?** Say "repo public" and I will set `REPO_PUBLIC = true`, make the GitHub repo public, and add the links to the paper's Meta table and the LinkedIn first comment.
+2. **Default model rule.** The default is the lower median hold-out error over the last hour. Keep it, or always show eSSVI now that it has won every snapshot measured so far?
+3. **Fly cost.** About $3 to $4 a month for an always-on machine and the 5 GB volume. Full five-minute raw data is kept 180 days on the volume (about 26 MB a day), and bundles 3 days. Fine as is?
+
