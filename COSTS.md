@@ -13,7 +13,7 @@ Last checked: 20 October 2026, 16:00 UTC. Prices are from the pages linked under
 | Volume snapshots | Fly's daily snapshots, kept 5 days; the data is under 1 GB | $0.08/GB/month, first 10 GB free | **$0.00** |
 | IP addresses | Shared IPv4 and IPv6 only. No dedicated IPv4 | Shared IPv4 and IPv6 free; dedicated IPv4 $2/month | **$0.00** |
 | Certificates | None (the domain is served by Vercel) | First 10 single-hostname certificates free | **$0.00** |
-| Outbound data | About 10 MB a day: gzipped JSON to Vercel at most every 5 minutes, 8 uploads a day to Blob | $0.02/GB in Europe and North America; no free allowance | **about $0.01** |
+| Outbound data | At most about 22 MB a day: one round of gzipped JSON to Vercel per 5 minutes whatever the traffic (measured), and 8 uploads a day to Blob | $0.02/GB in Europe and North America; no free allowance | **about $0.01** |
 | Swap (512 MB) | A file on the machine's root disk | The root disk is billed only while a machine is stopped ($0.15/GB/month) | **$0.00** |
 | Add-ons | None: no extra apps, Postgres, Redis or Tigris | | **$0.00** |
 | **Fly total** | | | **about $2.65** |
@@ -58,7 +58,7 @@ Source: [GitHub Actions billing](https://docs.github.com/en/billing/concepts/pro
 - **Weekly audit:** `.github/workflows/fly-audit.yml` runs every Monday at 07:00 UTC (and on demand). It runs `scripts/fly_audit.py`, which compares Fly with `scripts/fly-allowed.json`: one app, one shared-cpu-1x 256 MB machine in `lhr`, one 1 GB volume, shared IPv4 and IPv6 only, no certificates, snapshots within the free 10 GB, no Redis, Tigris or managed Postgres. Any difference opens a GitHub issue. It uses a read-only Fly token (GitHub secret `FLY_API_TOKEN`, valid for one year) that cannot change anything.
 - **Volume:** raw five-minute quotes are compacted daily and kept 14 days; bundles 3 days. If `/data` passes 80% full, the oldest compacted days are deleted first. Daily summaries live in Blob.
 - **Memory:** the worker peaks at about 141 MB on the 256 MB machine (measured 20 October). The daily report and compaction read one snapshot at a time; 512 MB of swap on the root disk is a safety net.
-- **Data transfer:** visitors never reach Fly. Vercel reads the live snapshot from Fly at most about once per 5 minutes and serves the cached copy to everyone.
+- **Data transfer:** visitors never reach Fly. Measured on 20 October with 80 and 126 requests to the page and `/api/latest` over 7 and 11 minutes: Fly saw one round of requests per 5 minutes, `latest.json` twice in each round (once for the page, once for `/api/latest`, which run in separate functions) plus `history.json` and `vrp.json`. That is about 75 KB per round, gzipped. With no visitors, Fly sees nothing.
 
 ## Stop everything
 
