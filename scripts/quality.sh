@@ -10,7 +10,7 @@ summary() {
   for f in $(find .lighthouseci -name 'lhr-*.json'); do
     python3 -c "
 import json,sys; d=json.load(open(sys.argv[1])); a=d['audits']
-print(d['finalUrl'].split('3300')[-1] or '/', d['configSettings'].get('formFactor'), {k: round(v['score']*100) for k, v in d['categories'].items()}, 'LCP', a['largest-contentful-paint']['displayValue'], 'TBT', a['total-blocking-time']['displayValue'])" "$f"
+print(d['finalUrl'].split('3300')[-1] or '/', d['configSettings'].get('formFactor'), {k: round(v['score']*100) for k, v in d['categories'].items()}, 'LCP', a['largest-contentful-paint']['displayValue'], 'TBT', a['total-blocking-time']['displayValue'], 'CLS', a['cumulative-layout-shift']['displayValue'])" "$f"
   done | sort
 }
 rm -rf .lighthouseci; npx lhci collect --config=lighthouserc.json > /dev/null 2>&1; summary

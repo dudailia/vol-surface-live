@@ -7,7 +7,10 @@ export const sourceSerif = localFont({
   src: '../public/fonts/source-serif-4-latin-var.woff2',
   weight: '200 900',
   style: 'normal',
-  display: 'optional',
+  // swap, not optional as on iliaduda.com: this is a one-page site, so a visitor's first
+  // load is usually their only one, and with optional a slow first load kept the fallback
+  // for the whole visit. The size-adjusted fallback keeps the swap's layout shift small.
+  display: 'swap',
   variable: '--font-serif-face',
   adjustFontFallback: 'Times New Roman',
   fallback: ['Georgia', 'Times New Roman', 'serif'],
