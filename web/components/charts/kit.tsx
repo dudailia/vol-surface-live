@@ -162,3 +162,12 @@ export function DataTable({ caption, head, rows }: { caption: string; head: stri
     </div>
   )
 }
+
+/** Drop ticks that would sit closer than `minPx` to the previous kept one. */
+export function thinTicks(ticks: number[], scale: ScaleLinear<number, number>, minPx = 30): number[] {
+  const out: number[] = []
+  for (const t of ticks) {
+    if (!out.length || Math.abs(scale(t) - scale(out[out.length - 1])) >= minPx) out.push(t)
+  }
+  return out
+}

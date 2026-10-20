@@ -9,7 +9,7 @@
 import { scaleLinear } from 'd3-scale'
 import { line as d3line } from 'd3-shape'
 import { useState } from 'react'
-import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks } from '@/components/charts/kit'
+import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks, thinTicks } from '@/components/charts/kit'
 import { Deferred } from '@/components/charts/Deferred'
 import { useWidth } from '@/components/charts/useMeasure'
 import { useLive } from '@/components/LiveProvider'
@@ -108,7 +108,7 @@ function Panel({ data, field, title, zero }: { data: Record<Cur, Point[]>; field
       <figcaption className="text-note text-graphite">{title}</figcaption>
       <svg width={w} height={h} aria-hidden="true">
         <YAxis scale={y} x={M.left} width={w - M.left - M.right} ticks={ticks} format={(v) => fixed(v, dp)} />
-        <XAxis scale={x} y={h - M.bottom} ticks={tdays.map(Math.sqrt)} format={(v) => `${Math.round(v * v)}d`} />
+        <XAxis scale={x} y={h - M.bottom} ticks={thinTicks(tdays.map(Math.sqrt), x, 28)} format={(v) => `${Math.round(v * v)}d`} />
         {zero && <line x1={M.left} x2={w - M.right} y1={y(0)} y2={y(0)} stroke={COLORS.ink} strokeOpacity={0.5} />}
         {(['BTC', 'ETH'] as const).map((c) => {
           const s = SERIES[c]

@@ -15,7 +15,7 @@ import { checksOf, fitsOf, localVolOf, MODEL_NAME, nearestExpiry, surfaceOf, typ
 import { expiryLabel, fixed } from '@/lib/format'
 import { rampColor } from '@/lib/geometry'
 import { sliceG, sliceOf, sliceW } from '@/lib/ssvi'
-import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks } from './kit'
+import { COLORS, DataTable, DrawPath, XAxis, YAxis, niceTicks, thinTicks } from './kit'
 import { useWidth } from './useMeasure'
 
 export const STEPS = 7
@@ -244,7 +244,7 @@ function SkewChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: n
     return (
       <g transform={`translate(${ox},${oy})`}>
         <YAxis scale={y} x={m.left} width={pw - m.left - m.right} ticks={niceTicks(lo - pad, hi + pad, 4)} format={(v) => fixed(v, 1)} label={title} />
-        <XAxis scale={x} y={ph - m.bottom} ticks={tdays.map(Math.sqrt)} format={(v) => `${Math.round(v * v)}d`} />
+        <XAxis scale={x} y={ph - m.bottom} ticks={thinTicks(tdays.map(Math.sqrt), x, 28)} format={(v) => `${Math.round(v * v)}d`} />
         <line x1={m.left} x2={pw - m.right} y1={y(0)} y2={y(0)} stroke={COLORS.ink} strokeOpacity={0.5} />
         {d && <DrawPath d={d} stroke={COLORS.indigo} width={2} />}
         {ex.map((e) => (
@@ -289,7 +289,7 @@ function TermChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w: n
     <figure className="h-full" aria-labelledby="fig6-cap">
       <svg width={w} height={h} aria-hidden="true" onPointerLeave={() => setHover(null)}>
         <YAxis scale={y} x={M.left} width={w - M.left - M.right} ticks={niceTicks(lo, hi, 5)} format={(v) => `${v}%`} label="At-the-money vol" />
-        <XAxis scale={x} y={h - M.bottom} ticks={tdays.map(Math.sqrt)} format={(v) => `${Math.round(v * v)}d`} label="Days to expiry (square-root scale)" />
+        <XAxis scale={x} y={h - M.bottom} ticks={thinTicks(tdays.map(Math.sqrt), x, 28)} format={(v) => `${Math.round(v * v)}d`} label="Days to expiry (square-root scale)" />
         {hover != null && <line x1={x(Math.sqrt(ex[hover].T * 365))} x2={x(Math.sqrt(ex[hover].T * 365))} y1={M.top} y2={h - M.bottom} stroke={COLORS.graphite} strokeOpacity={0.5} />}
         {d && <DrawPath d={d} stroke={COLORS.ink} width={1.75} opacity={0.85} />}
         {ex.map((e, i) => {
@@ -352,7 +352,7 @@ function LocalVolChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; 
         {cells.map((c, i) => (
           <rect key={i} x={c.x} y={c.y} width={c.w} height={c.h} fill={c.fill} />
         ))}
-        <YAxis scale={y} x={M.left} width={0} ticks={tdays.map(Math.sqrt)} format={(v) => `${Math.round(v * v)}d`} />
+        <YAxis scale={y} x={M.left} width={0} ticks={thinTicks(tdays.map(Math.sqrt), y, 18)} format={(v) => `${Math.round(v * v)}d`} />
         <XAxis scale={x} y={h - M.bottom} ticks={[-0.8, -0.4, 0, 0.4, 0.8]} format={(k) => (k === 0 ? '0' : fixed(k))} label="Log-moneyness k" />
         {/* Legend: the ramp with its end values. */}
         <defs>
