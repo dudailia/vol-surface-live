@@ -133,7 +133,7 @@ uv sync
 uv run volsurf snapshot          # one snapshot of BTC and ETH into ./data
 uv run volsurf serve             # scheduler + HTTP server on :8080
 uv run volsurf report --date 2026-10-19
-uv run pytest                    # 65 tests, offline
+uv run pytest                    # 67 tests, offline
 ```
 
 Web (Node 22, pnpm):
@@ -144,6 +144,14 @@ cp .env.example .env.local       # point WORKER_URL at the worker
 pnpm install
 pnpm dev
 pnpm test && pnpm build && pnpm e2e && pnpm lhci
+```
+
+The 15-second video in `media/` is the hero in capture mode, stepped frame by frame on a fixed clock:
+
+```sh
+cd web
+node scripts/record.mjs "https://vol.iliaduda.com/?capture=1" frames
+ffmpeg -framerate 30 -i frames/f%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart ../media/surface.mp4
 ```
 
 ## Tests
@@ -158,7 +166,8 @@ pnpm test && pnpm build && pnpm e2e && pnpm lhci
   - Realized vol on an exact series and a simulated one, the window coverage rule, and the forward-gap alignment.
   - Report units and signs, schema validation, endpoints (including token checks), Blob upload headers and budget, hourly snapshot selection.
 - **Web (Vitest):** the TypeScript SSVI and eSSVI match the Python implementation to 12 decimal places; blended frames keep the calendar condition; the slimmed client bundle round-trips.
-- **Web (Playwright, 20 tests):** zero console errors; each hero number once in the server HTML; stale snapshots stated in the server HTML; axe with no violations; keyboard use of both toggles and the history slider; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px.
+- **Web (Vitest, 15 tests):** also the share-image renderer (finite coordinates, a ring for every flagged quote).
+- **Web (Playwright, 25 tests):** zero console errors; each hero number once in the server HTML; no section streamed in as a hidden block; stale snapshots stated in the server HTML; axe with no violations, before and after every chart has mounted; keyboard use of both toggles, the 3D view and the history slider; 3D axis labels never under the hero text; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px; frame time of the 3D view.
 - **Lighthouse CI:** 90 or more in every category, mobile and desktop.
 - **Copy:** a copy check fails the build on em dashes or hype words.
 
