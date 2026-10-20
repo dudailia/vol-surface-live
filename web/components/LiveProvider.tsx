@@ -39,7 +39,9 @@ type Live = {
 
 const Ctx = createContext<Live | null>(null)
 
-const POLL_MS = 60_000
+// /api/latest is cached at the edge for 5 minutes, so polling faster would only re-read the
+// same copy. Polls go to Vercel's cache, never to the worker.
+const POLL_MS = 120_000
 const STALE_MS = 15 * 60_000
 
 export function LiveProvider({

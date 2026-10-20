@@ -20,7 +20,7 @@ export function generateStaticParams() {
 async function render(cur: string, shape: string): Promise<string | null> {
   'use cache'
   // stale ≥ 5 min keeps the data in the App Shell; the client polls /api/latest for freshness.
-  cacheLife({ stale: 300, revalidate: 60, expire: 900 })
+  cacheLife({ stale: 300, revalidate: 300, expire: 1800 })
   const latest = await getLatest()
   const b = cur === 'BTC' || cur === 'ETH' ? latest[cur] : undefined
   const size = SHAPES[shape.replace(/\.svg$/, '') as keyof typeof SHAPES]
@@ -54,7 +54,7 @@ export async function GET(_req: Request, ctx: RouteContext<'/poster/[cur]/[shape
       'content-type': 'image/svg+xml',
       'content-encoding': 'gzip',
       vary: 'accept-encoding',
-      'cache-control': 'public, s-maxage=60, stale-while-revalidate=600',
+      'cache-control': 'public, s-maxage=300, stale-while-revalidate=600',
     },
   })
 }

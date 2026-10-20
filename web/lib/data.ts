@@ -70,7 +70,9 @@ function parse<T>(schema: z.ZodType<T>, data: unknown, what: string): T | null {
 export async function getLatestWithTime(): Promise<{ bundles: Latest; fetchedAt: number }> {
   'use cache'
   // stale ≥ 5 min keeps the data in the App Shell; the client polls /api/latest for freshness.
-  cacheLife({ stale: 300, revalidate: 60, expire: 900 })
+  // Revalidate every 5 minutes, the worker's own cadence: visitors never reach Fly, and Fly
+  // serves this at most about once per 5 minutes (outbound data from Fly is billed).
+  cacheLife({ stale: 300, revalidate: 300, expire: 1800 })
   return { bundles: await fetchLatest(), fetchedAt: Date.now() }
 }
 
