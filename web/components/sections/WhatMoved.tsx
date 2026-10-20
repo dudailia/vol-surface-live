@@ -157,7 +157,8 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
   if (r.data.snapshots_received < r.data.snapshots_expected) {
     items.push(
       <>
-        <N v={r.data.snapshots_received} dp={0} /> of <N v={r.data.snapshots_expected} dp={0} /> five-minute snapshots arrived.
+        <N v={r.data.snapshots_received} dp={0} /> of <N v={r.data.snapshots_expected} dp={0} /> five-minute snapshots arrived; the
+        figures above use only those.
       </>,
     )
   }

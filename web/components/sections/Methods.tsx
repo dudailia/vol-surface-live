@@ -27,8 +27,9 @@ export function Methods({
             <p>
               Every five minutes a worker calls Deribit&rsquo;s public API, with no account or key:{' '}
               <code className="num text-note">get_book_summary_by_currency</code> for every BTC and ETH option, and{' '}
-              <code className="num text-note">get_instruments</code> for strikes and expiry times. That is about two dozen
-              requests per currency per run, well under Deribit&rsquo;s public rate limits. Raw quotes are archived as
+              <code className="num text-note">get_instruments</code> for strikes and expiry times, plus ten{' '}
+              <code className="num text-note">ticker</code> calls for the cross-check below. That is twelve requests per currency
+              per run, well under Deribit&rsquo;s public rate limits. Raw quotes are archived as
               Parquet, and a summary is written each day at 00:00 UTC.
             </p>
             <p className="mt-4">

@@ -13,15 +13,18 @@ import { COLORS, DataTable, DrawPath, YAxis, niceTicks } from '@/components/char
 import { Deferred } from '@/components/charts/Deferred'
 import { useWidth } from '@/components/charts/useMeasure'
 import { useLive, type Currency } from '@/components/LiveProvider'
-import { fixed, utcDate } from '@/lib/format'
+import { MODEL_NAME, tenorsOf } from '@/lib/bundle'
+import { fixed, utcDate, utcTime } from '@/lib/format'
 import type { VrpView } from '@/lib/vrp'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const M = { top: 20, right: 16, bottom: 30, left: 44 }
 
 export function ImpliedRealized({ views }: { views: Partial<Record<Currency, VrpView>> }) {
-  const { currency } = useLive()
+  const { currency, bundle, model } = useLive()
   const v = views[currency]
+  // The sentence quotes the live fit on screen, so it matches the hero; the hourly dots are SSVI.
+  const now30 = bundle ? tenorsOf(bundle, model)['30d'] : undefined
   const name = currency === 'BTC' ? 'Bitcoin' : 'Ether'
   return (
     <section aria-labelledby="vrp-title" className="page mt-24 sm:mt-32">
@@ -40,10 +43,11 @@ export function ImpliedRealized({ views }: { views: Partial<Record<Currency, Vrp
                 {name.toLowerCase()}, was <span className="num">{fixed(v.latest.dvol)}</span>, and the index had moved at{' '}
                 <span className="num">{fixed(v.latest.realized_30d)}</span> over the previous 30 days: implied was{' '}
                 <span className="num">{fixed(Math.abs(v.latest.gap))}</span> points {v.latest.gap >= 0 ? 'above' : 'below'} realized.
-                {v.latest.ours_atm30 != null && (
+                {bundle && now30 && (
                   <>
-                    {' '}Our own 30-day at-the-money vol was <span className="num">{fixed(v.latest.ours_atm30)}</span> at{' '}
-                    {v.latest.ours_ts?.slice(11, 16)} UTC; DVOL runs a little higher because it also prices the wings.
+                    {' '}Our own 30-day at-the-money vol, from the {MODEL_NAME[model]} fit, is{' '}
+                    <span className="num">{fixed(now30.atm)}</span> at {utcTime(bundle.ts)}; DVOL runs a little higher because it
+                    also prices the wings.
                   </>
                 )}
               </p>
@@ -171,7 +175,7 @@ function VrpChart({ v }: { v: VrpView }) {
       )}
       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-note text-graphite">
         <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block h-0.5 w-5 bg-indigo" />DVOL (implied)</span>
-        <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-indigo" />Our 30-day ATM vol</span>
+        <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-indigo" />Our 30-day ATM vol, SSVI, hourly</span>
         <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block h-0.5 w-5 bg-ink" />Realized, past 30 days</span>
         <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="inline-block w-5 border-t border-dashed border-graphite" />Deribit&rsquo;s historical volatility</span>
       </div>

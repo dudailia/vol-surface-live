@@ -44,7 +44,7 @@ flowchart LR
 - `get_book_summary_by_currency` (one call per currency) gives bid, ask and mark price, mark IV, the forward for each expiry, open interest and volume for every option. `get_instruments` gives strikes and exact expiry times.
 - Implied vols are solved from bid and ask prices with Black-76 on Deribit's forward at zero rates, which is Deribit's own convention. Coin prices are converted to USD with that forward.
 - Each run also fetches ten `ticker` responses and compares our IVs with Deribit's published `bid_iv` and `ask_iv`. They agree to Deribit's two-decimal rounding (0.005 vol points), apart from the occasional ticker whose IV disagrees with its own price; those are counted in every bundle.
-- About two dozen requests per currency per run, with a 5 requests per second token bucket and backoff on rate-limit errors.
+- Twelve requests per currency per run (instrument list, book summary, ten tickers), with a 5 requests per second token bucket and backoff on rate-limit errors.
 
 ### Cleaning
 
