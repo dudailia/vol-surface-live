@@ -93,6 +93,12 @@ test.describe('front page', () => {
     const outline = await page.getByRole('radiogroup', { name: 'Underlying' }).getByRole('radio', { name: 'ETH' }).evaluate((el) => getComputedStyle(el).outlineStyle)
     expect(outline).not.toBe('none')
     await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 15_000 })
+    // The 3D view itself is focusable and turns with the arrow keys.
+    const view = page.getByRole('img', { name: /surface in 3D/ })
+    await view.focus()
+    await expect(view).toBeFocused()
+    await page.keyboard.press('ArrowLeft')
+    await page.keyboard.press('ArrowUp')
     await page.getByRole('button', { name: 'Reset view' }).focus()
     await page.keyboard.press('Enter')
   })

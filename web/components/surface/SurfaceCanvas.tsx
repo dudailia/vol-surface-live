@@ -35,6 +35,8 @@ export type CanvasQuote = {
 
 export type CanvasHandle = {
   resetView: () => void
+  /** turn the view by a step (radians), as the arrow keys do */
+  nudge: (dAz: number, dEl: number) => void
   setAutoRotate: (on: boolean) => void
   /** capture mode: advance the clock by dt seconds and render one frame */
   step: (dt: number) => void
@@ -164,6 +166,7 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
   const { autoRotate } = props
   useImperativeHandle(ref, () => ({
     resetView: () => api.current?.resetView(),
+    nudge: (a, e) => api.current?.nudge(a, e),
     setAutoRotate: (on) => api.current?.setAutoRotate(on),
     step: (dt) => api.current?.step(dt),
   }))
@@ -625,6 +628,13 @@ export default function SurfaceCanvas({ ref, ...props }: Props) {
         touched = false
         azVel = elVel = 0
         idleFor = 0
+      },
+      nudge(dAz, dEl) {
+        az += dAz
+        el2 = Math.min(Math.max(el2 + dEl, 0.08), 1.35)
+        touched = true
+        idleFor = 0
+        dirty = true
       },
       setAutoRotate(on) {
         auto = on && !live.current.reducedMotion

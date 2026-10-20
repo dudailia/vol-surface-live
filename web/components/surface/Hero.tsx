@@ -228,7 +228,26 @@ export function Hero() {
             </button>
           )}
           {!failed && load && (
-            <div className={`absolute inset-0 transition-opacity duration-[var(--duration-ui)] ${ready ? 'opacity-100' : 'opacity-0'}`}>
+            <div
+              className={`absolute inset-0 rounded-[4px] transition-opacity duration-[var(--duration-ui)] ${ready ? 'opacity-100' : 'opacity-0'}`}
+              tabIndex={ready ? 0 : -1}
+              role="img"
+              aria-label={`${currency === 'BTC' ? 'Bitcoin' : 'Ether'} implied volatility surface in 3D. Arrow keys turn it; the charts below give the same numbers.`}
+              onKeyDown={(e) => {
+                const step = 0.08
+                const moves: Record<string, [number, number]> = {
+                  ArrowLeft: [-step, 0],
+                  ArrowRight: [step, 0],
+                  ArrowUp: [0, step / 2],
+                  ArrowDown: [0, -step / 2],
+                }
+                const m = moves[e.key]
+                if (m) {
+                  e.preventDefault()
+                  canvas.current?.nudge(m[0], m[1])
+                }
+              }}
+            >
               <SurfaceCanvas
                 ref={canvas}
                 surface={surface}
@@ -324,7 +343,7 @@ export function Hero() {
             )}
           </figcaption>
           <p className={`mt-2 max-w-[var(--measure)] text-note text-graphite ${capture ? 'hidden' : ''}`}>
-            Drag to turn it. {bundle.cleaning.n_kept} of {bundle.cleaning.n_raw} quotes passed the cleaning rules and were
+            Drag to turn it, or focus it and use the arrow keys. {bundle.cleaning.n_kept} of {bundle.cleaning.n_raw} quotes passed the cleaning rules and were
             fitted; the few more than {SPREAD_SD} standard deviations out are left off this view.
           </p>
         </div>
