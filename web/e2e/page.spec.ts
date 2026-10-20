@@ -48,7 +48,8 @@ test.describe('front page', () => {
     } else {
       expect(text).toContain('refitted every five minutes')
     }
-    expect(html).not.toContain('github.com')
+    // The repository is public: the footer and Methods link to it.
+    expect(html).toContain('href="https://github.com/dudailia/vol-surface-live"')
   })
 
   for (const width of WIDTHS) {

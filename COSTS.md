@@ -44,10 +44,10 @@ Hobby cannot be billed: "You will not pay for any additional usage." A feature t
 | Service | Use | Monthly |
 |---|---|---|
 | Deribit API | Public endpoints, no account | **$0.00** |
-| GitHub | Private repository on GitHub Free. Actions: 2,000 minutes a month included for private repositories; CI runs only the jobs whose code changed, and a newer push cancels an older run | **$0.00** while under 2,000 minutes |
+| GitHub | Public repository on GitHub Free (since 20 October 2026). Actions on standard GitHub-hosted runners are free for public repositories | **$0.00** |
 | Domain | `vol.iliaduda.com` is a subdomain of a domain that already existed, on Vercel DNS | **$0.00** added |
 
-Source: [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions). On 20 October this repository had used about 344 of the month's 2,000 minutes, most of it that day, before CI was cut down. Without a payment method GitHub blocks Actions at the limit; with one, extra minutes cost $0.006 each unless a budget stops them. To be sure nothing is billed, set an Actions budget of $0 under GitHub Settings, Billing and licensing, Budgets and alerts. Making the repository public would make Actions free.
+Source: [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions): "GitHub Actions usage is free for self-hosted runners and for public repositories that use standard GitHub-hosted runners." CI uses only standard `ubuntu-latest` runners, never larger runners, which are billed even on public repositories.
 
 ## Total
 

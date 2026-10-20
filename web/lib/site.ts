@@ -1,7 +1,7 @@
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vol.iliaduda.com'
 export const REPO_URL = 'https://github.com/dudailia/vol-surface-live'
-/** The repository is private until its owner says otherwise; no page links to it until then. */
-export const REPO_PUBLIC = false
+/** The repository is public (since 20 October 2026); the footer and Methods link to it. */
+export const REPO_PUBLIC = true
 export const AUTHOR_URL = 'https://iliaduda.com'
 export const TITLE = 'BTC and ETH implied volatility surface'
 export const DESCRIPTION =

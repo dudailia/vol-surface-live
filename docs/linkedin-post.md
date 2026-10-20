@@ -27,4 +27,4 @@ Link in the first comment.
 
 Live surface, methods and daily reports: https://vol.iliaduda.com
 
-(Add the GitHub link, https://github.com/dudailia/vol-surface-live, once the repository is public.)
+Code, tests and data: https://github.com/dudailia/vol-surface-live
