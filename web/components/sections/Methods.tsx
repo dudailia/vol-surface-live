@@ -158,6 +158,17 @@ export function Methods({ bundles }: { bundles: Partial<Record<'BTC' | 'ETH', Bu
             </Block>
           )}
 
+          <Block title="Tests">
+            <p>
+              Black-76 prices and Greeks are checked against QuantLib and against finite differences. SSVI and extended SSVI are
+              fitted to synthetic surfaces with known parameters and must recover them, and every no-arbitrage condition must
+              hold after fitting randomly generated surfaces. The arbitrage checks are fed deliberately broken quotes (concave
+              prices, crossing expiries, a slice with negative density) and must catch each one. The browser&rsquo;s SSVI is checked
+              against the Python worker&rsquo;s, and the page is tested in a browser for console errors, accessibility, keyboard use,
+              reduced motion and the fallback without WebGL. The tests run on every change.
+            </p>
+          </Block>
+
           <Block title="Limitations">
             <ul className="list-disc space-y-2 pl-5 marker:text-graphite">
               <li>Deribit quotes only. This is a description of one venue&rsquo;s order book, not a trading signal.</li>

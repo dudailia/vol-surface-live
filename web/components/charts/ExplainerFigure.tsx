@@ -50,7 +50,7 @@ export function ExplainerFigure({ bundle, step, model }: Props) {
   const caption = width < 520 ? 64 : 48
   const reduce = useReducedMotion()
   return (
-    <div ref={ref} className="relative w-full" style={{ height: height + caption }}>
+    <div ref={ref} className="relative w-full overflow-hidden" style={{ height: height + caption }}>
       <AnimatePresence mode="wait" initial={false}>
         <m.div
           key={step}

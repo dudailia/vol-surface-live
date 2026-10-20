@@ -106,10 +106,30 @@ function Sentences({ r, report }: { r: NonNullable<Report['currencies'][string]>
       </>,
     )
   }
+  const mid = a.totals.mid ?? {}
+  const midTotal = Object.values(mid).reduce((x, y) => x + y, 0)
+  const kinds = (['butterfly', 'vertical', 'calendar'] as const).filter((k) => (mid[k] ?? 0) > 0)
+  const KIND = { butterfly: 'butterflies', vertical: 'vertical spreads', calendar: 'calendar spreads' } as const
+  const ONE = { butterfly: 'butterfly', vertical: 'vertical spread', calendar: 'calendar spread' } as const
   items.push(
     <>
-      Raw quotes failed a static-arbitrage check at mid in <N v={a.snapshots_with_mid} dp={0} /> of <N v={a.snapshots_checked} dp={0} />{' '}
-      snapshots;{' '}
+      Raw quotes failed a static-arbitrage check at mid in <N v={a.snapshots_with_mid} dp={0} /> of{' '}
+      <N v={a.snapshots_checked} dp={0} /> snapshots
+      {midTotal > 0 && kinds.length > 0 && (
+        <>
+          {' '}(<N v={midTotal} dp={0} /> failures in all,{' '}
+          {kinds.length === 1
+            ? `all of them ${KIND[kinds[0]]}`
+            : kinds.map((k, i) => (
+                <span key={k}>
+                  {i > 0 && (i === kinds.length - 1 ? ' and ' : ', ')}
+                  <N v={mid[k]} dp={0} /> {mid[k] === 1 ? ONE[k] : KIND[k]}
+                </span>
+              ))}
+          )
+        </>
+      )}
+      ;{' '}
       {tradeable === 0 ? (
         'none of the failures were tradeable at quoted prices.'
       ) : (
