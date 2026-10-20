@@ -10,12 +10,22 @@ An implied-volatility surface is the standard way to read an options market: one
 
 ## How it works
 
-```
-Deribit public REST ──► worker (Python, Fly.io, London)
-                          every 5 min: fetch → clean → implied vol → SSVI fit → arbitrage checks → bundle
-                          Parquet archive on a volume; /latest.json and /history.json over HTTP
-                          00:00 UTC: daily report, end-of-day surface and raw quotes ──► Vercel Blob
-web (Next.js, Vercel) ──► reads the worker through a 60-second cache, and the archive from Blob
+```mermaid
+flowchart LR
+  D[Deribit public API] -->|every 5 min| W
+  D -->|hourly: index, DVOL,<br/>historical vol| W
+  subgraph W[Worker: Python on Fly.io, London]
+    direction TB
+    C[clean quotes<br/>solve implied vol] --> F[fit SSVI and eSSVI<br/>no-arbitrage constraints]
+    F --> A[check raw quotes<br/>for static arbitrage]
+    A --> B[bundle per snapshot]
+    B --> P[(Parquet and bundles<br/>on a 5 GB volume)]
+    B --> R[00:00 UTC daily report]
+  end
+  W -->|/latest.json, /history.json, /vrp.json<br/>bearer token| V[Next.js on Vercel<br/>60-second cache]
+  R -->|about 8 uploads a day| BL[(Vercel Blob<br/>public archive)]
+  BL --> V
+  V --> U[vol.iliaduda.com]
 ```
 
 ### Data
@@ -84,6 +94,10 @@ Vertical spreads (call prices fall with strike, by no more than the strike gap),
 
 At-the-money term structure √(θ/T); 25-delta risk reversal and butterfly per expiry and at 7, 30, 60, 90 and 180 days, using forward (not premium-adjusted) delta; Dupire local vol from analytic SSVI derivatives and a monotone cubic θ(T).
 
+### Implied against realized
+
+Hourly, the worker reads a year of Deribit's index (every six hours), DVOL (Deribit's 30-day implied volatility index, daily) and Deribit's published historical volatility. Realized volatility is the annualized root mean square of six-hour log returns over 30 days, counted only when the data reaches both ends of the window. The page shows DVOL and our 30-day ATM vol against trailing realized vol, and DVOL minus the realized vol of the following 30 days: the volatility risk premium as it turned out. From 21 October 2025 to 20 September 2026, DVOL was above the following 30 days' realized vol on 89% of 335 days for bitcoin (median 11.9 points) and 90% for ether (median 17.7).
+
 ### Daily report
 
 At 00:00 UTC: ATM vol, risk reversal and butterfly by tenor with 24-hour changes, the five biggest moves on a tenor × delta grid, arbitrage counts across the day's snapshots, fit quality, and data completeness. The schema is in `schema/report.schema.json`.
@@ -98,7 +112,7 @@ uv sync
 uv run volsurf snapshot          # one snapshot of BTC and ETH into ./data
 uv run volsurf serve             # scheduler + HTTP server on :8080
 uv run volsurf report --date 2026-10-19
-uv run pytest                    # 59 tests, offline
+uv run pytest                    # 65 tests, offline
 ```
 
 Web (Node 22, pnpm):
@@ -120,9 +134,10 @@ pnpm test && pnpm build && pnpm e2e && pnpm lhci
   - The constraints hold after fitting random surfaces.
   - The arbitrage checks fire on deliberately broken inputs (concave prices, slopes below −1, total variance falling with expiry, a slice with g(k) < 0, a crossing pair of eSSVI expiries) and stay quiet on clean ones.
   - Local vol equals implied vol on a flat surface and matches a closed form for a time-dependent one.
-  - Report units and signs, schema validation, endpoints, Blob upload headers and budget.
+  - Realized vol on an exact series and a simulated one, the window coverage rule, and the forward-gap alignment.
+  - Report units and signs, schema validation, endpoints (including token checks), Blob upload headers and budget, hourly snapshot selection.
 - **Web (Vitest):** the TypeScript SSVI and eSSVI match the Python implementation to 12 decimal places; blended frames keep the calendar condition; the slimmed client bundle round-trips.
-- **Web (Playwright, 16 tests):** zero console errors; each hero number once in the server HTML; stale snapshots stated in the server HTML; axe with no violations; keyboard use of both toggles and the history slider; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px.
+- **Web (Playwright, 20 tests):** zero console errors; each hero number once in the server HTML; stale snapshots stated in the server HTML; axe with no violations; keyboard use of both toggles and the history slider; reduced motion; the fallback when WebGL is unavailable; no horizontal scroll at 375, 768, 1440 and 2560 px.
 - **Lighthouse CI:** 90 or more in every category, mobile and desktop.
 - **Copy:** a copy check fails the build on em dashes or hype words.
 

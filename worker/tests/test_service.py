@@ -89,3 +89,26 @@ def test_hourly_history_picks_the_snapshot_nearest_each_hour(tmp_path):
     got = [h["ts"][:19] for h in hourly_history(st, "BTC", now=now)]
     # 00:00 from 23:59:59, 01:00 from 00:59:59, 02:00 from 01:59:58; 02:31 is no hour's.
     assert got == ["2026-10-19T23:59:59", "2026-10-20T00:59:59", "2026-10-20T01:59:58"]
+
+
+def test_vrp_route_needs_token_and_a_computed_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("LATEST_TOKEN", "s3cret")
+    client = TestClient(build_app(Settings(data_dir=tmp_path), State()))
+    auth = {"authorization": "Bearer s3cret"}
+    assert client.get("/vrp.json").status_code == 401
+    assert client.get("/vrp.json", headers=auth).status_code == 404
+    (tmp_path / "vrp.json").write_text(json.dumps({"version": 1, "currencies": {}}))
+    r = client.get("/vrp.json", headers=auth)
+    assert r.status_code == 200 and r.json()["version"] == 1
+
+
+def test_ours_series_reads_30_day_atm_from_saved_surfaces():
+    from volsurf.vrp import ours_series
+
+    theta = [0.36**2 * t for t in (0.02, 0.05, 0.1, 0.3)]
+    Ts = (0.02, 0.05, 0.1, 0.3)
+    c = {"ts": "2026-10-20T01:59:58.1Z",
+         "expiries": [{"T": t, "theta": th} for t, th in zip(Ts, theta, strict=True)]}
+    [(ts, v)] = ours_series([c])
+    assert ts == "2026-10-20T01:59Z"
+    assert v == pytest.approx(36.0, abs=0.05)  # flat ATM vol: θ = σ²T throughout
