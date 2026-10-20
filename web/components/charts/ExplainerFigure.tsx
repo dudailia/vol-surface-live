@@ -78,6 +78,8 @@ function QuotesChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w:
   const e = nearestExpiry(bundle, 30)
   const i = bundle.expiries.indexOf(e)
   const s = surfaceOf(bundle, model)
+  const other: Model = model === 'essvi' ? 'ssvi' : 'essvi'
+  const so = bundle.essvi ? surfaceOf(bundle, other) : null
   const q = e.quotes
   const [hover, setHover] = useState<number | null>(null)
   const x = scaleLinear().domain([Math.min(...q.k) - 0.02, Math.max(...q.k) + 0.02]).range([M.left, w - M.right])
@@ -88,13 +90,19 @@ function QuotesChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w:
   const fit = d3line<number>()
     .x((k) => x(k))
     .y((k) => y(Math.sqrt(sliceW(k, sliceOf(s, i)) / s.T[i]) * 100))(ks)
+  const fitOther = so
+    ? d3line<number>()
+        .x((k) => x(k))
+        .y((k) => y(Math.sqrt(sliceW(k, sliceOf(so, i)) / so.T[i]) * 100))(ks)
+    : null
   const strikeTicks = niceTicks(x.domain()[0], x.domain()[1], 5)
   return (
     <figure className="h-full" aria-labelledby="fig1-cap">
       <svg width={w} height={h} aria-hidden="true" onPointerLeave={() => setHover(null)}>
         <YAxis scale={y} x={M.left} width={w - M.left - M.right} ticks={niceTicks(...(y.domain() as [number, number]), 5)} format={(v) => `${v}%`} label="Implied vol" />
         <XAxis scale={x} y={h - M.bottom} ticks={strikeTicks} format={(k) => `${Math.round(Math.exp(k) * 100)}%`} label="Strike as % of the forward" />
-        {fit && <DrawPath d={fit} stroke={COLORS.ink} width={1.5} opacity={0.75} delay={0.2} />}
+        {fitOther && <DrawPath d={fitOther} stroke={COLORS.graphite} width={1.25} opacity={0.8} dash="5 4" />}
+        {fit && <DrawPath d={fit} stroke={COLORS.ink} width={1.5} opacity={0.85} delay={0.2} />}
         {q.k.map((k, j) => (
           <g key={j}>
             <line x1={x(k)} x2={x(k)} y1={y(q.bid_iv[j] * 100)} y2={y(q.ask_iv[j] * 100)} stroke={COLORS.indigo} strokeOpacity={0.45} strokeWidth={2} />
@@ -112,7 +120,8 @@ function QuotesChart({ bundle, model, w, h }: { bundle: Bundle; model: Model; w:
         </div>
       )}
       <figcaption id="fig1-cap" className="mt-1 text-note text-graphite">
-        {expiryLabel(e.code)} expiry, {e.n} quotes. Bars run from bid to ask; dots are mids; the line is the {MODEL_NAME[model]} fit.
+        {expiryLabel(e.code)} expiry, {e.n} quotes. Bars run from bid to ask; dots are mids; the solid line is the {MODEL_NAME[model]} fit
+        {so ? `, the dashed line ${MODEL_NAME[other]}` : ''}.
       </figcaption>
       <DataTable
         caption={`Quotes for the ${expiryLabel(e.code)} expiry`}
