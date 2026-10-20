@@ -159,6 +159,17 @@ test.describe('front page', () => {
     await expect.poll(() => sec.locator('svg rect').count()).toBeGreaterThan(100)
   })
 
+  test('what this is: index links all point at headings on the page', async ({ page }) => {
+    await page.goto('/')
+    const links = page.getByRole('navigation', { name: 'On this page' }).getByRole('link')
+    const n = await links.count()
+    expect(n).toBeGreaterThanOrEqual(7)
+    for (let i = 0; i < n; i++) {
+      const href = await links.nth(i).getAttribute('href')
+      expect(await page.locator(`h2${href}`).count(), href ?? '').toBe(1)
+    }
+  })
+
   test('reduced motion: no rotation control, static figure', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' })
     const page = await ctx.newPage()

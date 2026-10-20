@@ -11,6 +11,7 @@ import { vrpView } from '@/lib/vrp'
 import { ImpliedRealized } from '@/components/sections/ImpliedRealized'
 import { Compare } from '@/components/sections/Compare'
 import { LocalVol } from '@/components/sections/LocalVol'
+import { About } from '@/components/sections/About'
 import { utcDate } from '@/lib/format'
 import { sharedFrame } from '@/lib/geometry'
 
@@ -40,6 +41,7 @@ export default async function Page() {
     <LiveProvider initial={slim(latest)} frame={frame} fetchedAt={fetchedAt}>
       <main>
         <Hero />
+        <About />
         <WhatMoved report={report} nextReport={next ? utcDate(next.toISOString()) : 'the next day'} />
         <Explainer />
         <Compare />

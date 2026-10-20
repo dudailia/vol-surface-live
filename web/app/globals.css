@@ -112,6 +112,8 @@
   h1,
   h2,
   h3 {
+    /* Anchored headings land with room above them, not flush with the top edge. */
+    scroll-margin-top: 2rem;
     font-weight: 600;
     letter-spacing: -0.015em;
     text-wrap: balance;
