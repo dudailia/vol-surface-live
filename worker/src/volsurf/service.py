@@ -124,8 +124,10 @@ def build_app(settings: Settings, state: State) -> Starlette:
         now = datetime.now(UTC)
         ok = all(now - state.last_ok.get(c, datetime.min.replace(tzinfo=UTC)) < STALE_AFTER
                  for c in CURRENCIES)
+        # After a restart the newest report on the volume stands in until tonight's is written.
+        saved = sorted(p.stem for p in (settings.data_dir / "reports").glob("????-??-??.json"))
         body = {"ok": ok, "last_ok": {c: t.isoformat() for c, t in state.last_ok.items()},
-                "last_report": state.last_report}
+                "last_report": state.last_report or (saved[-1] if saved else None)}
         return Response(json.dumps(body), status_code=200 if ok else 503,
                         media_type="application/json")
 

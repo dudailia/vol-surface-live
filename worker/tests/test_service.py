@@ -29,6 +29,13 @@ def test_latest_and_health(tmp_path, monkeypatch):
     assert client.get("/healthz").json()["ok"] is True
     state.last_ok["ETH"] = now - timedelta(minutes=20)
     assert client.get("/healthz").status_code == 503
+    # A restart forgets the in-memory report date; the newest report on disk stands in.
+    assert client.get("/healthz").json()["last_report"] is None
+    (tmp_path / "reports").mkdir()
+    for d in ("2026-10-18", "2026-10-19"):
+        (tmp_path / "reports" / f"{d}.json").write_text("{}")
+    (tmp_path / "reports" / "index.json").write_text("{}")
+    assert client.get("/healthz").json()["last_report"] == "2026-10-19"
 
 
 def test_token_is_enforced_when_set(tmp_path, monkeypatch):
