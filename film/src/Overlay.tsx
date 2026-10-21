@@ -11,10 +11,10 @@ const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(
 const minus = (x: number, dp = 1) => (x < 0 ? '−' : '') + Math.abs(x).toFixed(dp)
 const num: CSSProperties = { fontFamily: MONO, fontVariantNumeric: 'tabular-nums lining-nums', fontFeatureSettings: "'tnum' 1, 'lnum' 1" }
 
-/** An entrance: rises, sharpens and fades in (blur stands in for motion blur), on the strong ease-out. */
+/** An entrance: rises and fades in on the strong ease-out. No blur: type is sharp on every frame. */
 function enter(t: number, at: number, dur = 0.55, dist = 0.4): CSSProperties {
   const x = prog(t, at, at + dur)
-  return { opacity: x, transform: `translateY(${(1 - x) * dist}em)`, filter: `blur(${(1 - x) * 8}px)` }
+  return { opacity: x, transform: `translateY(${(1 - x) * dist}em)` }
 }
 function leave(t: number, at: number, dur = 0.25): number {
   return 1 - prog(t, at, at + dur)
@@ -110,7 +110,7 @@ function contentBox(L: Layout): Box {
   const bottom = L.H - L.bottom - L.caption * (L.kind === 'vertical' ? 2.6 : 1.6)
   return { x: L.padX, y: top, w: L.W - 2 * L.padX, h: bottom - top }
 }
-/** Kinetic entrance for the hard cuts: slides in from the right, motion-blurred. */
+/** Kinetic entrance for the hard cuts: a short slide in from the right, sharp throughout. */
 function cut(t: number, at: number): CSSProperties {
   const x = prog(t, at, at + 0.3)
   return { transform: `translateX(${(1 - x) * 4}%)` }
@@ -171,7 +171,7 @@ function Versus({ t, L }: { t: number; L: Layout }) {
           {[7, 30, 90, 180].filter((d) => d < dmax).map((d) => (
             <text key={d} x={X(d)} y={ch + 40 * L.s} fill={C.graphite} fontSize={25 * L.s} textAnchor="middle" style={num}>{d}d</text>
           ))}
-          <path d={path} fill="none" stroke={color} strokeWidth={5.5 * L.s} strokeLinejoin="round" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - k} style={{ filter: `drop-shadow(0 0 ${10 * L.s}px ${color})` }} />
+          <path d={path} fill="none" stroke={color} strokeWidth={5.5 * L.s} strokeLinejoin="round" strokeLinecap="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - k} />
           {pts.map((p, j) => (
             <circle key={p.code} cx={X(p.days)} cy={Y(p.atm)} r={8 * L.s} fill={color} stroke={C.paper} strokeWidth={3 * L.s} opacity={clamp01((k * pts.length - j) * 1.5)} />
           ))}
@@ -295,7 +295,7 @@ function Bars({ t, L }: { t: number; L: Layout }) {
           <div key={r.name} style={{ position: 'absolute', left: 0, right: 0, top: top + i * (barH + 96 * L.s) }}>
             <div style={{ fontFamily: SERIF, fontSize: 36 * L.s, color: C.ink, marginBottom: 14 * L.s, ...enter(t, a + 0.1 + i * 0.1) }}>{r.name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20 * L.s }}>
-              <div style={{ height: barH, width: `${(r.v / max) * 82 * k}%`, background: r.color, borderRadius: 4 * L.s, boxShadow: i === 0 ? `0 0 ${36 * L.s}px rgba(163,173,245,0.45)` : undefined }} />
+              <div style={{ height: barH, width: `${(r.v / max) * 82 * k}%`, background: r.color, borderRadius: 4 * L.s, }} />
               <div style={{ ...num, fontSize: 68 * L.s, color: C.ink, opacity: Math.min(1, k * 2) }}>{(r.v * k).toFixed(2)}</div>
             </div>
           </div>
@@ -317,7 +317,7 @@ function End({ t, L }: { t: number; L: Layout }) {
           <span key={i} style={{ display: 'inline-block', ...enter(t, 22.35 + i * 0.03, 0.6, 0.3) }}>{ch}</span>
         ))}
       </div>
-      <div style={{ margin: `${26 * L.s}px auto 0`, height: 3 * L.s, width: `${38 * rule}%`, background: C.indigo, boxShadow: `0 0 ${20 * L.s}px ${C.indigo}` }} />
+      <div style={{ margin: `${26 * L.s}px auto 0`, height: 3 * L.s, width: `${38 * rule}%`, background: C.indigo }} />
       <div style={{ ...num, fontSize: 34 * L.s, color: '#c4c8d0', marginTop: 26 * L.s, letterSpacing: '0.02em', ...enter(t, 23.0) }}>
         Open source · live · tested
       </div>

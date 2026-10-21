@@ -160,12 +160,12 @@ The earlier LinkedIn videos (`linkedin-square.mp4`, `linkedin-vertical.mp4`, ass
 
 ### The film
 
-The videos are not in git: `film-square.mp4`, `film-vertical.mp4`, `film-wide.mp4` and the 12-second `film-hook-square.mp4` are assets of the [v1.0-film release](https://github.com/dudailia/vol-surface-live/releases/tag/v1.0-film), with the cover `media/film-cover.png` and key frames `media/film-keyframes.png` kept here. They are rendered frame by frame from the archive in Remotion and three.js (`film/`), at 60 fps with no audio. The data and the exact source files are in `media/film-data/`; every number on screen is listed with its source in `media/film-numbers.md`.
+The videos are not in git: `film-square.mp4`, `film-vertical.mp4`, `film-wide.mp4` and the 12-second `film-hook-square.mp4` are assets of the [v1.0-film release](https://github.com/dudailia/vol-surface-live/releases/tag/v1.0-film), with sharp 4K masters (`film-square-4k.mp4`, `film-vertical-4k.mp4`, `film-wide-4k.mp4`) and LinkedIn upload versions beside them, and the cover `media/film-cover.png` and key frames `media/film-keyframes.png` kept here. They are rendered frame by frame from the archive in Remotion and three.js (`film/`), at 60 fps with no audio. The data and the exact source files are in `media/film-data/`; every number on screen is listed with its source in `media/film-numbers.md`.
 
 ```sh
 cd worker && uv run python ../film/scripts/prepare.py <copy of the worker volume>
 cd ../film && pnpm install
-npx remotion render src/index.ts FilmSquare ../media/film-square.mp4 --codec=h264 --video-bitrate=20M --gl=angle
+npx remotion render src/index.ts FilmSquare4K ../media/film-square-4k.mp4 --codec=h264 --crf=15 --pixel-format=yuv420p --color-space=bt709 --gl=angle
 ```
 
 ## Tests

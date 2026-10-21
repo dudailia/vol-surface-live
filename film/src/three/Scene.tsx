@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber'
-import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
 import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { continueRender, delayRender } from 'remotion'
 import * as THREE from 'three'
@@ -97,7 +97,7 @@ const surfVert = /* glsl */ `
   }`
 const surfFrag = /* glsl */ `
   uniform vec3 r0; uniform vec3 r1; uniform vec3 r2; uniform vec3 r3; uniform vec3 rim;
-  uniform float lo; uniform float hi; uniform float reveal; uniform float bright;
+  uniform float lo; uniform float hi; uniform float reveal; uniform float bright; uniform float px;
   varying float vVol; varying vec2 vUv; varying vec3 vN; varying vec3 vW;
   vec3 ramp(float x) {
     x = clamp(x, 0.0, 1.0) * 3.0;
@@ -106,7 +106,7 @@ const surfFrag = /* glsl */ `
     return mix(r2, r3, x - 2.0);
   }
   float line(float c, float n) {
-    float f = abs(fract(c * n - 0.5) - 0.5) / fwidth(c * n);
+    float f = abs(fract(c * n - 0.5) - 0.5) / (fwidth(c * n) * px);
     return 1.0 - clamp(f, 0.0, 1.0);
   }
   void main() {
@@ -131,7 +131,7 @@ const surfFrag = /* glsl */ `
     #include <colorspace_fragment>
   }`
 
-function Surface({ t }: { t: number }) {
+function Surface({ t, L }: { t: number; L: Layout }) {
   const { geo, mat } = useMemo(() => {
     const geo = new THREE.BufferGeometry()
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NU * NT * 3), 3))
@@ -157,7 +157,7 @@ function Surface({ t }: { t: number }) {
         r0: { value: rampLin[0] }, r1: { value: rampLin[1] }, r2: { value: rampLin[2] }, r3: { value: rampLin[3] },
         // The colour scale spans 25% to 75% vol, where nearly all of both surfaces lies.
         rim: { value: lin(C.violet) }, lo: { value: Math.max(FRAME.volLo, 0.25) }, hi: { value: Math.min(FRAME.volHi, 0.75) },
-        reveal: { value: 0 }, bright: { value: 1 },
+        reveal: { value: 0 }, bright: { value: 1 }, px: { value: 1 },
       },
     })
     return { geo, mat }
@@ -169,7 +169,9 @@ function Surface({ t }: { t: number }) {
     geo.computeVertexNormals()
     mat.uniforms.reveal.value = t >= 22 ? 1.001 : t < 2 ? -0.01 : lerp(-0.01, 1.001, prog(t, 2.0, 3.6, easeInOut))
     mat.uniforms.bright.value = t >= 22 ? 0.82 : 1
-  }, [t, geo, mat])
+    // Line widths in pixels grow with the frame, so a 4K master looks like the 1080 cut, only sharper.
+    mat.uniforms.px.value = L.s
+  }, [t, L, geo, mat])
   return <mesh geometry={geo} material={mat} />
 }
 
@@ -202,6 +204,9 @@ const ptVert = /* glsl */ `
   void main() {
     vCol = col; vA = alpha;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    // Quotes sit on the surface: lift each one toward the camera by a little more than its
+    // radius, so the mesh does not cut the disc in half. Points behind the surface stay hidden.
+    mv.xyz += normalize(-mv.xyz) * 0.06;
     gl_PointSize = size * scale / -mv.z;
     gl_Position = projectionMatrix * mv;
   }`
@@ -209,8 +214,9 @@ const ptFrag = /* glsl */ `
   varying vec3 vCol; varying float vA;
   void main() {
     float d = length(gl_PointCoord - 0.5) * 2.0;
-    float a = smoothstep(1.0, 0.35, d);
-    gl_FragColor = vec4(vCol * (0.6 + 0.8 * smoothstep(0.6, 0.0, d)), a * vA);
+    // A crisp disc: a one-to-two pixel antialiased edge, a slightly brighter core.
+    float a = 1.0 - smoothstep(1.0 - 2.0 * fwidth(d), 1.0, d);
+    gl_FragColor = vec4(vCol * (0.9 + 0.35 * smoothstep(0.55, 0.0, d)), a * vA);
     #include <colorspace_fragment>
   }`
 function Quotes({ t, L }: { t: number; L: Layout }) {
@@ -371,12 +377,13 @@ export function Scene({ t, L }: { t: number; L: Layout }) {
       <color attach="background" args={[C.paper]} />
       <Rig t={t} L={L} />
       <Floor t={t} />
-      <Surface t={t} />
+      <Surface t={t} L={L} />
       <Quotes t={t} L={L} />
       <Rings t={t} L={L} />
-      <EffectComposer multisampling={4}>
-        <DepthOfField target={[0, 0.42, 0]} focalLength={0.16} bokehScale={2.2} />
-        <Bloom intensity={0.75} luminanceThreshold={0.58} luminanceSmoothing={0.25} mipmapBlur />
+      {/* No depth of field: every resting frame is sharp. A faint, tight glow on the
+          brightest highlights only, so points and lines stay crisp. */}
+      <EffectComposer multisampling={8}>
+        <Bloom intensity={0.22} luminanceThreshold={0.85} luminanceSmoothing={0.08} radius={0.35} />
         <Vignette offset={0.32} darkness={0.55} />
       </EffectComposer>
       <WarmUp />
