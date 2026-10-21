@@ -1,0 +1,42 @@
+{
+ "what": "Numbers shown in media/linkedin-square.mp4, media/linkedin-vertical.mp4, media/linkedin-cover.png and quoted in docs/linkedin-post.md",
+ "recorded_with": "web/scripts/linkedin.mjs, from the live page",
+ "source": "https://vol.iliaduda.com/",
+ "snapshot_ts": {
+  "BTC": "2026-10-20T23:59:59.026624Z",
+  "ETH": "2026-10-21T00:00:02.073784Z"
+ },
+ "captions": {
+  "s1": "Bitcoin options on Deribit, 23:59 UTC, 20 Oct 2026",
+  "s3": {
+   "ether_atm30": "48.9",
+   "bitcoin_atm30": "35.3",
+   "from": "hero sentence, selected fit"
+  },
+  "s5": {
+   "bitcoin_dvol": "37.3",
+   "realized_30d": "24.4",
+   "from": "Implied against realized section"
+  },
+  "s6": {
+   "local_vol_low": "27.0",
+   "local_vol_high": "75.6",
+   "from": "Local volatility section"
+  }
+ },
+ "tenor_30d_selected_fit": {
+  "BTC": {
+   "model": "essvi",
+   "atm": 35.3259,
+   "rr25": -3.8593,
+   "bf25": 1.0765
+  },
+  "ETH": {
+   "model": "essvi",
+   "atm": 48.9123,
+   "rr25": -2.6543,
+   "bf25": 1.9274
+  }
+ },
+ "api": "https://vol.iliaduda.com/api/latest?full=1, fetched during the recording"
+}

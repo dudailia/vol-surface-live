@@ -156,6 +156,8 @@ node scripts/record.mjs "https://vol.iliaduda.com/?capture=1" frames
 ffmpeg -framerate 30 -i frames/f%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart ../media/surface.mp4
 ```
 
+The LinkedIn videos (`media/linkedin-square.mp4`, `media/linkedin-vertical.mp4`) are seven shots of the live page with captions built from its own numbers, stepped frame by frame and joined with crossfades: `node scripts/linkedin.mjs square <dir>` or `vertical <dir>`. Each run writes the numbers it showed to `<dir>/numbers.json`.
+
 ## Tests
 
 - **Worker (pytest + hypothesis):**
