@@ -148,7 +148,7 @@ pnpm dev
 pnpm test && pnpm build && pnpm e2e && pnpm lhci
 ```
 
-The 15-second video in `media/` is the hero in capture mode, stepped frame by frame on a fixed clock:
+The 15-second `surface.mp4` (also a release asset) is the hero in capture mode, stepped frame by frame on a fixed clock:
 
 ```sh
 cd web
@@ -156,11 +156,11 @@ node scripts/record.mjs "https://vol.iliaduda.com/?capture=1" frames
 ffmpeg -framerate 30 -i frames/f%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart ../media/surface.mp4
 ```
 
-The LinkedIn videos (`media/linkedin-square.mp4`, `media/linkedin-vertical.mp4`) are seven shots of the live page with captions built from its own numbers, stepped frame by frame and joined with crossfades: `node scripts/linkedin.mjs square <dir>` or `vertical <dir>`. Each run writes the numbers it showed to `<dir>/numbers.json`.
+The earlier LinkedIn videos (`linkedin-square.mp4`, `linkedin-vertical.mp4`, assets of the [v1.0-film release](https://github.com/dudailia/vol-surface-live/releases/tag/v1.0-film)) are seven shots of the live page with captions built from its own numbers, stepped frame by frame and joined with crossfades: `node scripts/linkedin.mjs square <dir>` or `vertical <dir>`. Each run writes the numbers it showed to `<dir>/numbers.json`.
 
 ### The film
 
-`media/film-square.mp4`, `film-vertical.mp4`, `film-wide.mp4` and the 12-second `film-hook-square.mp4` are rendered frame by frame from the archive in Remotion and three.js (`film/`), at 60 fps with no audio. The data and the exact source files are in `media/film-data/`; every number on screen is listed with its source in `media/film-numbers.md`.
+The videos are not in git: `film-square.mp4`, `film-vertical.mp4`, `film-wide.mp4` and the 12-second `film-hook-square.mp4` are assets of the [v1.0-film release](https://github.com/dudailia/vol-surface-live/releases/tag/v1.0-film), with the cover `media/film-cover.png` and key frames `media/film-keyframes.png` kept here. They are rendered frame by frame from the archive in Remotion and three.js (`film/`), at 60 fps with no audio. The data and the exact source files are in `media/film-data/`; every number on screen is listed with its source in `media/film-numbers.md`.
 
 ```sh
 cd worker && uv run python ../film/scripts/prepare.py <copy of the worker volume>

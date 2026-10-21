@@ -21,3 +21,6 @@ web/.lighthouseci/
 !.env.example
 .DS_Store
 media/frames/
+
+# Videos live in GitHub Releases, not in git (local copies stay in media/).
+*.mp4
