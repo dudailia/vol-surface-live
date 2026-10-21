@@ -158,6 +158,16 @@ ffmpeg -framerate 30 -i frames/f%04d.png -c:v libx264 -pix_fmt yuv420p -crf 20 -
 
 The LinkedIn videos (`media/linkedin-square.mp4`, `media/linkedin-vertical.mp4`) are seven shots of the live page with captions built from its own numbers, stepped frame by frame and joined with crossfades: `node scripts/linkedin.mjs square <dir>` or `vertical <dir>`. Each run writes the numbers it showed to `<dir>/numbers.json`.
 
+### The film
+
+`media/film-square.mp4`, `film-vertical.mp4`, `film-wide.mp4` and the 12-second `film-hook-square.mp4` are rendered frame by frame from the archive in Remotion and three.js (`film/`), at 60 fps with no audio. The data and the exact source files are in `media/film-data/`; every number on screen is listed with its source in `media/film-numbers.md`.
+
+```sh
+cd worker && uv run python ../film/scripts/prepare.py <copy of the worker volume>
+cd ../film && pnpm install
+npx remotion render src/index.ts FilmSquare ../media/film-square.mp4 --codec=h264 --video-bitrate=20M --gl=angle
+```
+
 ## Tests
 
 - **Worker (pytest + hypothesis):**
